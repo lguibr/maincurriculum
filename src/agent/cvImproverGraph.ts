@@ -1,5 +1,6 @@
 import { StateGraph, START, END, Annotation, MemorySaver } from "@langchain/langgraph";
 import { GoogleGenAI, Type } from "@google/genai";
+import { RunnableConfig } from "@langchain/core/runnables";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -20,12 +21,14 @@ export const CVImproverState = Annotation.Root({
 
 export type CVImproverStateType = typeof CVImproverState.State;
 
-async function matchGitHubProjects(state: CVImproverStateType) {
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+async function matchGitHubProjects(state: CVImproverStateType, config?: RunnableConfig) {
+  const onChunk = config?.configurable?.onChunk;
+  const stream = await ai.models.generateContentStream({
+    model: "gemini-3.1-pro-preview",
     contents: `Review the current CV and the user's GitHub portfolio. Select up to 5 most impressive and relevant projects that should be highlighted or added to the CV to improve it.
 Current CV: ${state.current_cv}
-GitHub Portfolio: ${JSON.stringify((state.github_portfolio || []).map(p => ({ name: p.name, description: p.description, language: p.language })))}`,
+GitHub Portfolio: ${JSON.stringify((state.github_portfolio || []).map(p => ({ name: p.name, description: p.description, language: p.language })))}
+Output ONLY JSON.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -36,17 +39,26 @@ GitHub Portfolio: ${JSON.stringify((state.github_portfolio || []).map(p => ({ na
       },
     },
   });
-  const result = JSON.parse(response.text || "{}");
+  
+  let fullText = "";
+  for await (const chunk of stream) {
+    fullText += chunk.text;
+    if (onChunk) onChunk("Match_GitHub_Projects", chunk.text);
+  }
+
+  const result = JSON.parse(fullText || "{}");
   return { selected_projects: result.selected_projects || [] };
 }
 
-async function fetchRepoContext(state: CVImproverStateType) {
+async function fetchRepoContext(state: CVImproverStateType, config?: RunnableConfig) {
+  const onChunk = config?.configurable?.onChunk;
   const repo_deep_dives: Record<string, string> = { ...(state.repo_deep_dives || {}) };
   for (const repoName of state.selected_projects || []) {
     if (!repo_deep_dives[repoName]) {
       const repo = (state.github_portfolio || []).find(p => p.name === repoName);
       if (repo && repo.full_name) {
         try {
+          if (onChunk) onChunk("Fetch_Repo_Context", `\nFetching context for ${repo.full_name}...`);
           const res = await fetch(`https://api.github.com/repos/${repo.full_name}/readme`);
           if (res.ok) {
             const data = await res.json();
@@ -63,8 +75,9 @@ async function fetchRepoContext(state: CVImproverStateType) {
   return { repo_deep_dives };
 }
 
-async function evaluateCV(state: CVImproverStateType) {
-  const response = await ai.models.generateContent({
+async function evaluateCV(state: CVImproverStateType, config?: RunnableConfig) {
+  const onChunk = config?.configurable?.onChunk;
+  const stream = await ai.models.generateContentStream({
     model: "gemini-3.1-pro-preview",
     contents: `You are an elite Tech Recruiter and Resume Coach specializing in Software Engineering, AI, Game Development, and Full Stack roles.
 Review the following CV against State-Of-The-Art (SOTA) industry standards.
@@ -86,7 +99,7 @@ Provide:
 2. A detailed critique (mentioning how they can better use their GitHub projects).
 3. If the score is less than 9.5, provide 1-3 specific questions to ask the user to extract STAR details (e.g., "What was the specific impact of X?", "What technologies did you use for Y?"). If you have enough info from recent answers to do a rewrite, you can output an empty list of questions.
 
-Output JSON.`,
+Output ONLY JSON.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -99,8 +112,14 @@ Output JSON.`,
       }
     }
   });
+
+  let fullText = "";
+  for await (const chunk of stream) {
+    fullText += chunk.text;
+    if (onChunk) onChunk("Evaluate_CV", chunk.text);
+  }
   
-  const res = JSON.parse(response.text || "{}");
+  const res = JSON.parse(fullText || "{}");
   return {
     score: res.score || 0,
     critique: res.critique || "",
@@ -125,8 +144,9 @@ async function askUser(state: CVImproverStateType) {
   return {};
 }
 
-async function rewriteCV(state: CVImproverStateType) {
-  const response = await ai.models.generateContent({
+async function rewriteCV(state: CVImproverStateType, config?: RunnableConfig) {
+  const onChunk = config?.configurable?.onChunk;
+  const stream = await ai.models.generateContentStream({
     model: "gemini-3.1-pro-preview",
     contents: `You are an expert CV writer for AI/Game/Full Stack Software Engineers.
 Rewrite the following CV to improve it based on the critique, the user's answers, and their GitHub projects.
@@ -145,7 +165,7 @@ ${state.critique}
 User Answers:
 ${JSON.stringify(state.user_answers)}
 
-Output the complete rewritten CV in Markdown format.`,
+Output the complete rewritten CV in Markdown format. Output ONLY JSON.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -156,8 +176,14 @@ Output the complete rewritten CV in Markdown format.`,
       }
     }
   });
+
+  let fullText = "";
+  for await (const chunk of stream) {
+    fullText += chunk.text;
+    if (onChunk) onChunk("Rewrite_CV", chunk.text);
+  }
   
-  const res = JSON.parse(response.text || "{}");
+  const res = JSON.parse(fullText || "{}");
   return { current_cv: res.rewritten_cv || state.current_cv, questions_for_user: [] };
 }
 
