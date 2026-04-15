@@ -6,12 +6,12 @@ export function useTailorAgent() {
   const [progress, setProgress] = useState<{ node: string; message: string }[]>([]);
   const [activeNodes, setActiveNodes] = useState<string[]>([]);
   const [streamingTokens, setStreamingTokens] = useState<Record<string, string>>({});
-  const [result, setResult] = useState<{ cv: string; coverLetter: string } | null>(null);
+  const [result, setResult] = useState<{ cv: string; coverLetter: string; answers?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const runTailor = async (jobDescription: string, baseCv: string, githubUsername: string) => {
+  const runTailor = async (jobDescription: string, baseCv: string, githubUsername: string, companyQuestions: string = "") => {
     if (!jobDescription || !baseCv || !githubUsername) {
-      setError("Please fill in all fields.");
+      setError("Please fill in all required fields.");
       return;
     }
 
@@ -40,6 +40,8 @@ export function useTailorAgent() {
         repo_deep_dives: {},
         draft_cv: "",
         draft_cover_letter: "",
+        company_questions: companyQuestions,
+        draft_answers: "",
         critique_truth: "",
         critique_star: "",
         critique_verbosity: "",
@@ -92,7 +94,11 @@ export function useTailorAgent() {
 
       const finalGraphState = await appGraph.getState(config);
       if (finalGraphState && finalGraphState.values.draft_cv) {
-        setResult({ cv: finalGraphState.values.draft_cv, coverLetter: finalGraphState.values.draft_cover_letter });
+        setResult({ 
+          cv: finalGraphState.values.draft_cv, 
+          coverLetter: finalGraphState.values.draft_cover_letter,
+          answers: finalGraphState.values.draft_answers
+        });
         addProgress("Workflow Complete!");
         setActiveNodes(["END"]);
       }

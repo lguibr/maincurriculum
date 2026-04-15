@@ -13,6 +13,8 @@ export const AgentState = Annotation.Root({
   repo_deep_dives: Annotation<Record<string, string>>(),
   draft_cv: Annotation<string>(),
   draft_cover_letter: Annotation<string>(),
+  company_questions: Annotation<string>(),
+  draft_answers: Annotation<string>(),
   
   critique_truth: Annotation<string>(),
   critique_star: Annotation<string>(),
@@ -30,7 +32,7 @@ async function analyzeJD(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-pro-preview",
+    model: "gemini-3-flash-preview",
     contents: `Analyze the following Job Description and extract the core technologies, soft skills, and vibe/tone.
 Job Description:
 ${state.job_description}
@@ -62,7 +64,7 @@ Output ONLY valid JSON.`,
 async function profileMatch(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-pro-preview",
+    model: "gemini-3-flash-preview",
     contents: `Match the job description analysis against the base CV and GitHub portfolio. Select up to 3 most relevant GitHub projects.
 JD Analysis: ${JSON.stringify(state.jd_analysis)}
 Base CV: ${state.base_cv}
@@ -117,23 +119,33 @@ async function fetchRepoContext(state: AgentStateType, config?: RunnableConfig) 
 
 async function draftDocs(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
+  const questionsInput = state.company_questions ? `Company Application Questions: ${state.company_questions}` : "";
+  const questionsPrompt = state.company_questions ? " and 'draft_answers' (markdown format resolving the questions)" : "";
+
+  const properties: Record<string, any> = {
+    draft_cv: { type: Type.STRING },
+    draft_cover_letter: { type: Type.STRING },
+  };
+  
+  if (state.company_questions) {
+    properties.draft_answers = { type: Type.STRING };
+  }
+
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-pro-preview",
+    model: "gemini-3-flash-preview",
     contents: `Draft a highly tailored CV and Cover Letter based on the following inputs.
 JD Analysis: ${JSON.stringify(state.jd_analysis)}
 Base CV: ${state.base_cv}
 Selected Projects Context: ${JSON.stringify(state.repo_deep_dives)}
 Critique Feedback (if any): ${state.critique_feedback || "None"}
+${questionsInput}
 
-Output a JSON object with 'draft_cv' (markdown format) and 'draft_cover_letter' (markdown format). Ensure the tone matches the requested vibe. Output ONLY valid JSON.`,
+Output a JSON object with 'draft_cv' (markdown format) and 'draft_cover_letter' (markdown format)${questionsPrompt}. Ensure the tone matches the requested vibe. Output ONLY valid JSON.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
-        properties: {
-          draft_cv: { type: Type.STRING },
-          draft_cover_letter: { type: Type.STRING },
-        },
+        properties: properties,
       },
     },
   });
@@ -148,6 +160,7 @@ Output a JSON object with 'draft_cv' (markdown format) and 'draft_cover_letter' 
   return { 
     draft_cv: result.draft_cv || "", 
     draft_cover_letter: result.draft_cover_letter || "",
+    draft_answers: result.draft_answers || "",
     iterations: (state.iterations || 0) + 1,
     // Reset critiques
     critique_truth: "", critique_star: "", critique_verbosity: "", critique_tone: "", critique_feedback: ""
@@ -161,15 +174,16 @@ Output a JSON object with 'draft_cv' (markdown format) and 'draft_cover_letter' 
 async function critiqueTruth(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-pro-preview",
+    model: "gemini-3-flash-preview",
     contents: `You are the Truthfulness Critic. Compare the Draft CV/Cover Letter against the provided GitHub Repo context and Base CV.
 Are there any blatantly invented claims, skills, or metrics? 
 
 Base CV:
 ${state.base_cv}
 
-Draft CV:
+Draft CV & Answers:
 ${state.draft_cv}
+${state.draft_answers || ""}
 
 GitHub Context:
 ${JSON.stringify(state.repo_deep_dives)}
@@ -188,12 +202,15 @@ Output a brief critique or "OK" if everything is grounded in the source data.`
 async function critiqueStar(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-pro-preview",
+    model: "gemini-3-flash-preview",
     contents: `You are the STAR Method Critic. Evaluate the Draft CV.
-Do the bullet points effectively use the STAR method (Situation, Task, Action, Result)? Or are they just a list of responsibilities?
+Do the bullet points and any application answers effectively use the STAR method (Situation, Task, Action, Result)? Or are they just a list of responsibilities?
 
 Draft CV:
 ${state.draft_cv}
+
+Draft Answers (If any):
+${state.draft_answers || ""}
 
 Output specific areas for improvement, or "OK" if well-formatted.`
   });
@@ -209,13 +226,14 @@ Output specific areas for improvement, or "OK" if well-formatted.`
 async function critiqueVerbosity(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-pro-preview",
+    model: "gemini-3-flash-preview",
     contents: `You are the Conciseness Critic. Evaluate the Draft CV and Draft Cover Letter.
 Are they too wordy, rambling, or dense? Are they too sparse and lacking detail?
 
 Drafts:
 ${state.draft_cv}
 ${state.draft_cover_letter}
+${state.draft_answers || ""}
 
 Output specific wording suggestions, or "OK" if perfectly balanced.`
   });
@@ -231,7 +249,7 @@ Output specific wording suggestions, or "OK" if perfectly balanced.`
 async function critiqueTone(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-pro-preview",
+    model: "gemini-3-flash-preview",
     contents: `You are the Tone Critic. Analyze the Draft CV and Cover Letter against the Job Description vibe.
 Does the candidate show off appropriately without sounding arrogant or overly boastful?
 
@@ -240,6 +258,7 @@ JD Vibe: ${state.jd_analysis?.vibe}
 Drafts:
 ${state.draft_cv}
 ${state.draft_cover_letter}
+${state.draft_answers || ""}
 
 Output tone adjustments needed, or "OK" if tone matches beautifully.`
   });
@@ -255,7 +274,7 @@ Output tone adjustments needed, or "OK" if tone matches beautifully.`
 async function critiqueAggregator(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-pro-preview",
+    model: "gemini-3-flash-preview",
     contents: `You are the Master Editor. Analyze the following 4 distinct critiques of the current Draft CV and Cover Letter.
     
 1. Truthfulness Critique: ${state.critique_truth}

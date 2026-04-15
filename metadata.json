@@ -1,6 +1,0 @@
-{
-  "name": "MainCurriculum",
-  "description": "An AI-powered CV assistant that iteratively improves resumes to SOTA standards using Human-in-the-Loop and tailors them for specific jobs using GitHub context.",
-  "requestFramePermissions": [],
-  "majorCapabilities": []
-}

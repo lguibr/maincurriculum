@@ -85,17 +85,17 @@
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
+    --background: oklch(0 0 0);
     --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
+    --card: oklch(0 0 0);
     --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
+    --popover: oklch(0.05 0 0);
     --popover-foreground: oklch(0.985 0 0);
     --primary: oklch(0.922 0 0);
     --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
+    --secondary: oklch(0.1 0 0);
     --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
+    --muted: oklch(0.1 0 0);
     --muted-foreground: oklch(0.708 0 0);
     --accent: oklch(0.269 0 0);
     --accent-foreground: oklch(0.985 0 0);
@@ -108,11 +108,11 @@
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
+    --sidebar: oklch(0 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
     --sidebar-primary: oklch(0.488 0.243 264.376);
     --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent: oklch(0.1 0 0);
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
@@ -128,4 +128,69 @@
   html {
     @apply font-sans;
     }
+}
+
+/* Custom Scrollbar for overflow-y-auto */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+@media print {
+  /* Set a smaller print margin directly on the page to fit more content */
+  @page {
+    margin: 10mm;
+  }
+
+  /* Ensure background and foreground default to white/black */
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  
+  /* Force all typography in prose to be black, resetting dark mode "prose-invert" */
+  .prose * {
+    color: black !important;
+  }
+
+  /* Compact spacing for tailwind prose so the CV fits on fewer pages */
+  .prose {
+    font-size: 0.85rem !important;
+    line-height: 1.3 !important;
+    max-width: none !important;
+  }
+  .prose h1, .prose h2, .prose h3, .prose h4 {
+    margin-top: 0.8em !important;
+    margin-bottom: 0.3em !important;
+    line-height: 1.2 !important;
+  }
+  .prose p, .prose ul, .prose ol {
+    margin-top: 0.2em !important;
+    margin-bottom: 0.2em !important;
+  }
+  .prose li {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  .prose hr {
+    margin-top: 0.5em !important;
+    margin-bottom: 0.5em !important;
+    border-color: #cbd5e1 !important; /* Keep it light and subtle */
+  }
+
+  /* Optionally, let layout take full page height without arbitrary scroll containers */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+  }
 }

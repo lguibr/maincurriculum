@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  pg_vector_db:
+    image: ankane/pgvector
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=maincurriculum
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./packages/backend/src/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    restart: unless-stopped
+
+volumes:
+  pg_data:
