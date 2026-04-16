@@ -66,13 +66,13 @@ export function useTailorAgent() {
         }
       };
 
-      const stream = await appGraph.streamEvents(initialState, { ...config, version: "v2" });
+      const stream = await appGraph.streamEvents(initialState, { ...config, version: "v2", recursionLimit: 150 });
       
       // We will also use the standard .stream() loop for node completion events
       // Wait, .streamEvents captures EVERYTHING. Let's use standard .stream() but passing config!
       // In graph runner it is actually appGraph.stream(initialState, config)
       
-      const graphStream = await appGraph.stream(initialState, config);
+      const graphStream = await appGraph.stream(initialState, { ...config, recursionLimit: 150 });
 
       for await (const event of graphStream) {
         // Event is an object with node name as key

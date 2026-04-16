@@ -3,13 +3,8 @@ import { StateAnnotation, ProfileGraphState } from "./state";
 import { persisterNode } from "./nodes/persister";
 import { ingestionSubGraph } from "./subgraphs/ingestion";
 import { interviewerSubGraph } from "./subgraphs/interviewer";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 
-const llm = new ChatGoogleGenerativeAI({
-    model: "gemini-3.1-pro-preview",
-    temperature: 1,
-    apiKey: process.env.GEMINI_API_KEY,
-});
+
 
 async function supervisorNode(state: typeof StateAnnotation.State) {
     // Check if we have db writes pending from a previous cycle that Supervisor happened to intercept (unlikely due to routing, but safe)
