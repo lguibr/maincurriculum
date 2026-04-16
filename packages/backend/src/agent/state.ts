@@ -14,6 +14,8 @@ export interface ProfileGraphState {
   baseCv: string;
   githubHandle: string;
   userProfileId: number | null;
+  workingExtendedCv: string;
+  critiqueFeedback: string[];
   
   // Repositories & Processing Tracking
   repositories: any[]; 
@@ -38,23 +40,32 @@ export interface ProfileGraphState {
 
 export const StateAnnotation = Annotation.Root({
   githubUrl: Annotation<string>({
-    reducer: (a, b) => b || a,
+    reducer: (a, b) => b !== undefined ? b : a,
     default: () => "",
   }),
   baseCv: Annotation<string>({
-    reducer: (a, b) => b || a,
+    reducer: (a, b) => b !== undefined ? b : a,
     default: () => "",
   }),
   githubHandle: Annotation<string>({
-    reducer: (a, b) => b || a,
+    reducer: (a, b) => b !== undefined ? b : a,
     default: () => "",
   }),
   userProfileId: Annotation<number | null>({
-    reducer: (a, b) => b || a,
+    reducer: (a, b) => b !== null ? b : a,
     default: () => null,
+  }),
+  workingExtendedCv: Annotation<string>({
+    reducer: (a, b) => b !== undefined ? b : a,
+    default: () => "",
+  }),
+  critiqueFeedback: Annotation<string[]>({
+    reducer: (a, b) => b || a, // Will overwrite on each critique cycle
+    default: () => [],
   }),
   repositories: Annotation<any[]>({
     reducer: (a, b) => b || a, // Reset or overwrite
+
     default: () => [],
   }),
   ingestedProjects: Annotation<number>({

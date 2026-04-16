@@ -149,6 +149,44 @@ app.post("/api/ingest/answer", async (req, res) => {
   }
 });
 
+app.post("/api/improver/chat", async (req, res) => {
+  const { message, extendedCv } = req.body;
+  res.status(200).json({ status: "Chat received" });
+
+  try {
+    let payload: any = { 
+      currentPhase: "Improver" 
+    };
+    if (message) {
+      payload.messages = [{ role: 'user', content: message }];
+    }
+    if (extendedCv) {
+      payload.workingExtendedCv = extendedCv;
+    }
+
+    for await (const event of await appGraph.streamEvents(
+      payload,
+      { version: "v2", recursionLimit: 150, configurable: { thread_id: SINGLETON_THREAD_ID } }
+    )) {
+      if (!activeSSEClient) continue;
+      
+      const evtName = event.event;
+      if (evtName === "on_custom_event") {
+         activeSSEClient.write(`data: ${JSON.stringify({ type: "log", message: (event.data as any).msg })}\n\n`);
+      } else if (evtName === "on_chat_model_stream") {
+         activeSSEClient.write(`data: ${JSON.stringify({ type: "token", message: event.data.chunk?.text || "" })}\n\n`);
+      }
+      activeSSEClient.write(`data: ${JSON.stringify({ type: "langgraph_event", payload: event })}\n\n`);
+    }
+
+    if (activeSSEClient) {
+        activeSSEClient.write(`data: ${JSON.stringify({ type: "complete", data: { completed: true } })}\n\n`);
+    }
+  } catch(e: any) {
+    if (activeSSEClient) activeSSEClient.write(`data: ${JSON.stringify({ type: "log", message: "ERROR: " + e.message })}\n\n`);
+  }
+});
+
 app.get("/api/profile/latest", async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM user_profiles ORDER BY id DESC LIMIT 1");

@@ -3,6 +3,7 @@ import { StateAnnotation, ProfileGraphState } from "./state";
 import { persisterNode } from "./nodes/persister";
 import { ingestionSubGraph } from "./subgraphs/ingestion";
 import { interviewerSubGraph } from "./subgraphs/interviewer";
+import { improverSubGraph } from "./subgraphs/improver";
 
 
 
@@ -21,6 +22,11 @@ async function supervisorNode(state: typeof StateAnnotation.State) {
         return { nextAgent: "IngestionAgent" };
     }
 
+    // Master CV Improvements
+    if (state.currentPhase === "Improver") {
+        return { nextAgent: "ImproverAgent" };
+    }
+
     // Interview flow
     if (state.missingCount !== 0 || (state.interviewHistory && state.interviewHistory.length > 0 && !state.interviewHistory[state.interviewHistory.length - 1]?.answer)) {
         return { nextAgent: "InterviewerAgent" };
@@ -35,6 +41,7 @@ function supervisorRouter(state: typeof StateAnnotation.State) {
     }
     if (state.nextAgent === "IngestionAgent") return "IngestionAgent";
     if (state.nextAgent === "InterviewerAgent") return "InterviewerAgent";
+    if (state.nextAgent === "ImproverAgent") return "ImproverAgent";
     return END;
 }
 
@@ -55,6 +62,7 @@ const workflow = new StateGraph(StateAnnotation)
     .addNode("Supervisor", supervisorNode)
     .addNode("IngestionAgent", ingestionSubGraph)
     .addNode("InterviewerAgent", interviewerSubGraph)
+    .addNode("ImproverAgent", improverSubGraph)
     .addNode("Persister", persisterNode)
 
     .addEdge(START, "Supervisor")
@@ -69,6 +77,10 @@ const workflow = new StateGraph(StateAnnotation)
         Supervisor: "Supervisor"
     })
     .addConditionalEdges("InterviewerAgent", subGraphRouter, {
+        Persister: "Persister",
+        Supervisor: "Supervisor"
+    })
+    .addConditionalEdges("ImproverAgent", subGraphRouter, {
         Persister: "Persister",
         Supervisor: "Supervisor"
     })
