@@ -169,6 +169,8 @@ const embedProjectTool = tool(
 
 // ---------------- DeepAgent Setup ------------------ //
 
+import { INGESTION_SYSTEM_PROMPT } from "../prompts/ingestion.prompt";
+
 const fsBackend = new FilesystemBackend({
   rootDir: path.resolve(process.cwd(), "../../temp_repos"),
 });
@@ -181,14 +183,7 @@ const deeperIngestionAgent = createDeepAgent({
     apiKey: process.env.GEMINI_API_KEY,
   }),
   backend: fsBackend,
-  systemPrompt: `You are an elite Repository Processing deepagent. 
-1. Use fetch_github_repos to get the list of repositories available for this handle.
-2. For EACH repository found (pass \`index\` and \`total\` parameters when cloning and embedding):
-   a. Use clone_repo to clone it.
-   b. CRITICAL: Use your sandboxed filesystem tools to explicitly read "package.json", "Cargo.toml", "requirements.txt", or any index file present. You MUST understand its dependencies and high-level architectural logic.
-   c. Summarize this logic deeply, including specific frameworks discovered.
-   d. Run embed_project on the analyzed repo to save your architectural context.
-3. When finished with ALL repos, wrap up your findings and append the Database directives to your final message output in JSON format surrounded by <directives> tags.`,
+  systemPrompt: INGESTION_SYSTEM_PROMPT,
   tools: [fetchGithubTool, cloneRepoTool, embedProjectTool],
 });
 

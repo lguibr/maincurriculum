@@ -1,7 +1,8 @@
 import { ProfileGraphState, StateAnnotation, DbDirective } from "../state";
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { INTERVIEWER_PROMPTS } from "../prompts/interviewer";
+import { COMPLETENESS_SYSTEM_PROMPT, INTERVIEWER_SYSTEM_PROMPT } from "../prompts/interviewer.prompt";
+import { CV_IMPROVER_SYSTEM_PROMPT } from "../prompts/improver.prompt";
 import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import { RunnableConfig } from "@langchain/core/runnables";
 import {
@@ -37,7 +38,7 @@ async function evaluateCompleteness(state: typeof StateAnnotation.State, config?
 
   const evaluation = await evaluatorWithStructure.invoke(
     [
-      { role: "system", content: INTERVIEWER_PROMPTS.completenessSystem },
+      { role: "system", content: COMPLETENESS_SYSTEM_PROMPT },
       { role: "user", content: `Here is the current CV and profile info: \n\n${extendedCv}` },
     ],
     config
@@ -77,7 +78,7 @@ async function directInterview(state: typeof StateAnnotation.State, config?: Run
 
   const nextQ = await interviewLlm.invoke(
     [
-      { role: "system", content: INTERVIEWER_PROMPTS.interviewerSystem },
+      { role: "system", content: INTERVIEWER_SYSTEM_PROMPT },
       { role: "user", content: `Missing area: ${targetArea}. History:\n${historyText}` },
     ],
     config
@@ -121,7 +122,7 @@ async function improveCV(state: typeof StateAnnotation.State, config?: RunnableC
 
   const res = await llm.invoke(
     [
-      { role: "system", content: INTERVIEWER_PROMPTS.cvImproverSystem },
+      { role: "system", content: CV_IMPROVER_SYSTEM_PROMPT },
       {
         role: "user",
         content: `Context: ${extendedCv}\n\nQ: ${lastInteraction.question}\nA: ${lastInteraction.answer}\n\nPlease output the completely updated markdown CV.`,

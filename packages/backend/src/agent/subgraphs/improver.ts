@@ -4,6 +4,15 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { RunnableConfig } from "@langchain/core/runnables";
 import { searchGithubProjectsTool, querySkillsAndExperiencesTool } from "../tools/vectorSearch";
 import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
+import {
+  CV_DRAFTER_PROMPT,
+  CRITIQUE_TONE_PROMPT,
+  CRITIQUE_TRUTH_PROMPT,
+  CRITIQUE_SKILLS_PROMPT,
+  CRITIQUE_PROJECTS_PROMPT,
+  CRITIQUE_EXPERIENCES_PROMPT,
+  CRITIQUE_CONSOLIDATOR_PROMPT,
+} from "../prompts/improver.prompt";
 
 const llm = new ChatGoogleGenerativeAI({
   model: "gemini-3.1-pro-preview",
@@ -21,8 +30,7 @@ async function draftCV(state: typeof StateAnnotation.State, config?: RunnableCon
   const msgs: any[] = [
     {
       role: "system",
-      content:
-        "You are drafting the Extensive Master CV based on user requests. Call tools to fetch vector data from their github repos or demographic data if needed. Do not hallucinate. Provide raw markdown of the CV. Only output markdown.",
+      content: CV_DRAFTER_PROMPT,
     },
     {
       role: "user",
@@ -63,11 +71,7 @@ async function critiqueTone(state: typeof StateAnnotation.State, config?: Runnab
   );
   const evalResult = await llm.invoke(
     [
-      {
-        role: "system",
-        content:
-          "Analyze the following CV. Does it sound 'show off' or obnoxious? Too weak? Provide a 1-sentence critique. If perfect, simply output EXACTLY 'PASS'.",
-      },
+      { role: "system", content: CRITIQUE_TONE_PROMPT },
       { role: "user", content: state.workingExtendedCv },
     ],
     config
@@ -86,8 +90,7 @@ async function critiqueTruth(state: typeof StateAnnotation.State, config?: Runna
   const msgs: any[] = [
     {
       role: "system",
-      content:
-        "Analyze the CV for suspicious or overly complex claims. Use tool 'search_github_projects' to verify if they actually built what they claim. If lying or unsupported, provide a strict critique. If supported, exactly output 'PASS'.",
+      content: CRITIQUE_TRUTH_PROMPT,
     },
     { role: "user", content: state.workingExtendedCv },
   ];
@@ -123,8 +126,7 @@ async function critiqueSkills(state: typeof StateAnnotation.State, config?: Runn
   const msgs: any[] = [
     {
       role: "system",
-      content:
-        "Verify the CV strictly utilizes the skills found in the user's demographic DB. Query it. If it invents unlisted skills, fail it. Otherwise output 'PASS'.",
+      content: CRITIQUE_SKILLS_PROMPT,
     },
     { role: "user", content: state.workingExtendedCv },
   ];
@@ -156,11 +158,7 @@ async function critiqueProjects(state: typeof StateAnnotation.State, config?: Ru
   );
   const evalResult = await llm.invoke(
     [
-      {
-        role: "system",
-        content:
-          "Review CV. Does it accurately portray proper software engineering projects? Say 'PASS' if good, otherwise point out gaps.",
-      },
+      { role: "system", content: CRITIQUE_PROJECTS_PROMPT },
       { role: "user", content: state.workingExtendedCv },
     ],
     config
@@ -179,11 +177,7 @@ async function critiqueExperiences(state: typeof StateAnnotation.State, config?:
   );
   const evalResult = await llm.invoke(
     [
-      {
-        role: "system",
-        content:
-          "Review timeline consistency in the CV experiences. Say 'PASS' if there are no magical overlapping full-time conflicts or impossibilities. Else explain.",
-      },
+      { role: "system", content: CRITIQUE_EXPERIENCES_PROMPT },
       { role: "user", content: state.workingExtendedCv },
     ],
     config
@@ -206,7 +200,7 @@ async function consolidateCV(state: typeof StateAnnotation.State, config?: Runna
       [
         {
           role: "system",
-          content: `You must fix the CV given the following strict critiques:\n${state.critiqueFeedback.join("\n")}\n\nOutput only fixed markdown CV.`,
+          content: `${CRITIQUE_CONSOLIDATOR_PROMPT}\n<critiques_list>\n${state.critiqueFeedback.join("\n")}\n</critiques_list>`,
         },
         { role: "user", content: state.workingExtendedCv },
       ],

@@ -73,6 +73,7 @@ const workflow = new StateGraph(StateAnnotation)
     Persister: "Persister",
     IngestionAgent: "IngestionAgent",
     InterviewerAgent: "InterviewerAgent",
+    ImproverAgent: "ImproverAgent",
     [END]: END,
   })
   .addConditionalEdges("IngestionAgent", subGraphRouter, {

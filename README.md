@@ -35,6 +35,60 @@ This monorepo utilizes an NPM workspace configuration:
 - **`packages/backend`**: The brains of the operation. Orchestrates agent context, handles local database integrations, and executes your workflow logic.
 - **`packages/frontend`**: A state-of-the-art React workspace with breadcrumb-based navigation, responsive IDE-style layouts, and real-time synchronization with your underlying agents.
 
+## 🧠 System Architecture
+
+Main Curriculum orchestrates multiple autonomous AI subgraphs. The entire backend engine leverages a persistent state graph that coordinates complex pipelines.
+
+```mermaid
+graph TD
+    %% Main Supervisor
+    START((START)) --> |Incoming Event| Supervisor[Supervisor Router]
+    
+    %% Base Branching
+    Supervisor --"nextAgent: IngestionAgent"--> IngestionAgent(deeperIngestionAgent)
+    Supervisor --"nextAgent: InterviewerAgent"--> Interviewer[Interviewer Subgraph]
+    Supervisor --"nextAgent: ImproverAgent"--> Improver[Improver Subgraph]
+    Supervisor --"nextAgent: END"--> END((END))
+    
+    %% Ingestion Node
+    subgraph Ingestion
+        IngestionAgent --> |`fetch_github_repos`| GH[GitHub API]
+        IngestionAgent --> |`clone_repo`| FS[Local Sandbox FS]
+        IngestionAgent --> |`embed_project`| DB[(Project Embeddings)]
+    end
+    
+    %% Interviewer Subgraph
+    subgraph Interview
+        Interviewer --> EvalComp[Evaluate Completeness]
+        EvalComp --> ImproveCV[Improve CV Context]
+        ImproveCV --> DirQA[Direct Interview Q&A]
+    end
+    
+    %% Improver Subgraph
+    subgraph Improvements
+        Improver --> DraftCV[Draft Base CV]
+        DraftCV --> CTone[Critique Tone]
+        DraftCV --> CTruth[Critique Truth]
+        DraftCV --> CSkills[Critique Skills]
+        DraftCV --> CProj[Critique Projects]
+        DraftCV --> CExp[Critique Experiences]
+        
+        CTone --> Consolidate[Consolidate Feedback]
+        CTruth --> Consolidate
+        CSkills --> Consolidate
+        CProj --> Consolidate
+        CExp --> Consolidate
+    end
+    
+    %% Persistence
+    Persister[(DB Persister)]
+    
+    IngestionAgent -.-> Persister
+    Interviewer -.-> Persister
+    Improver -.-> Persister
+    Persister -.-> Supervisor
+```
+
 ## 🗂 Key Features
 
 - **Job Tailor**: Instantly align your profile against specific job descriptions.
