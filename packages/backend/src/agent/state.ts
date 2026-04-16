@@ -1,18 +1,34 @@
 import { BaseMessage } from "@langchain/core/messages";
 import { Annotation } from "@langchain/langgraph";
 
+// Action payloads for the Persister node to execute
+export interface DbDirective {
+  targetTable: 'user_profiles' | 'cv_versions' | 'projects_raw_text' | 'project_embeddings';
+  action: 'insert' | 'update' | 'upsert';
+  data: any;
+  whereClause?: any; // e.g. { id: 1 }
+}
+
 export interface ProfileGraphState {
   githubUrl: string;
   baseCv: string;
   githubHandle: string;
   userProfileId: number | null;
-  repositories: any[]; // List of rich Github repo metadata objects
-  ingestedProjects: number; // Count of projects processed
-  knowledgeGaps: string[]; // Generic gaps (pending removal)
-  messages: BaseMessage[]; // Conversation history for the interview
+  
+  // Repositories & Processing Tracking
+  repositories: any[]; 
+  ingestedProjects: number; 
+  
+  // Sub-Agent and Orchestration State
+  nextAgent: string | null;
+  pendingDbWrites: DbDirective[];
+  
+  // Interview tracking
+  knowledgeGaps: string[]; 
+  messages: BaseMessage[]; 
   finalSQLDemographics: string;
   
-  // Wizard State
+  // General UI Display
   currentPhase: string;
   wizardCompleted: boolean;
 }
@@ -35,15 +51,29 @@ export const StateAnnotation = Annotation.Root({
     default: () => null,
   }),
   repositories: Annotation<any[]>({
-    reducer: (a, b) => b || a,
+    reducer: (a, b) => b || a, // Reset or overwrite
     default: () => [],
   }),
   ingestedProjects: Annotation<number>({
     reducer: (a, b) => a + (b || 0),
     default: () => 0,
   }),
+  
+  // --- New Sub-Agent Orchestration State ---
+  nextAgent: Annotation<string | null>({
+    reducer: (a, b) => b !== undefined ? b : a,
+    default: () => null,
+  }),
+  pendingDbWrites: Annotation<DbDirective[]>({
+    reducer: (state, update) => {
+      if (update && update.length === 0) return [];
+      return state.concat(update || []);
+    },
+    default: () => [],
+  }),
+  
   knowledgeGaps: Annotation<string[]>({
-    reducer: (a, b) => b || a,
+    reducer: (a, b) => b || a, // Simple override
     default: () => [],
   }),
   messages: Annotation<BaseMessage[]>({
@@ -56,7 +86,7 @@ export const StateAnnotation = Annotation.Root({
   }),
   currentPhase: Annotation<string>({
     reducer: (a, b) => b || a,
-    default: () => "Parsing Github...",
+    default: () => "Initializing System...",
   }),
   wizardCompleted: Annotation<boolean>({
     reducer: (a, b) => b || a,

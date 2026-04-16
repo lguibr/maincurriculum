@@ -1,66 +1,84 @@
 import { StateGraph, START, END } from "@langchain/langgraph";
-import { ProfileGraphState, StateAnnotation } from "./state";
-import { fetchGithub, cloneAndConcat, generateEmbeddings } from "./nodes/ingestor";
-import { 
-  buildOntology,
-  analyzeSkills, 
-  skillsInterview, 
-  analyzeEducation, 
-  educationInterview, 
-  analyzeExperience, 
-  experienceInterview,
-  compileExtendedCV
-} from "./nodes/interviewer";
+import { StateAnnotation, ProfileGraphState } from "./state";
+import { persisterNode } from "./nodes/persisterNode";
+import { ingestionSubGraph } from "./subgraphs/ingestion";
+import { interviewerSubGraph } from "./subgraphs/interviewer";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { SUPERVISOR_PROMPTS } from "./prompts/supervisor";
+
+const llm = new ChatGoogleGenerativeAI({
+  modelName: "gemini-3-pro",
+  temperature: 0.1,
+});
+
+async function supervisorNode(state: typeof StateAnnotation.State) {
+    // Check if we have db writes pending from a previous cycle that Supervisor happened to intercept (unlikely due to routing, but safe)
+    if (state.pendingDbWrites && state.pendingDbWrites.length > 0) {
+        return {}; 
+    }
+
+    // Logic based Routing (can also use LLM for complex routing)
+    if (!state.currentPhase) {
+        return { currentPhase: "Initialize", nextAgent: "IngestionAgent" };
+    }
+
+    if (state.githubHandle && (!state.repositories || state.repositories.length === 0)) {
+        return { nextAgent: "IngestionAgent" };
+    }
+
+    // Interview flow
+    if (state.missingCount !== 0 || (state.interviewHistory && state.interviewHistory.length > 0 && !state.interviewHistory[state.interviewHistory.length-1]?.answer)) {
+         return { nextAgent: "InterviewerAgent" };
+    }
+
+    return { nextAgent: "END" };
+}
+
+function supervisorRouter(state: typeof StateAnnotation.State) {
+    if (state.pendingDbWrites && state.pendingDbWrites.length > 0) {
+        return "Persister";
+    }
+    if (state.nextAgent === "IngestionAgent") return "IngestionAgent";
+    if (state.nextAgent === "InterviewerAgent") return "InterviewerAgent";
+    return END;
+}
+
+function subGraphRouter(state: typeof StateAnnotation.State) {
+    // If a subgraph generated db writes, route to Persister before returning to Supervisor
+    if (state.pendingDbWrites && state.pendingDbWrites.length > 0) {
+        return "Persister";
+    }
+    return "Supervisor";
+}
+
+function persisterRouter(state: typeof StateAnnotation.State) {
+    // After persisting, always return to Supervisor to re-evaluate state
+    return "Supervisor";
+}
 
 const workflow = new StateGraph(StateAnnotation)
-  .addNode("Fetch_Github", fetchGithub)
-  .addNode("Clone_And_Concat", cloneAndConcat)
-  .addNode("Generate_Embeddings", generateEmbeddings)
+  .addNode("Supervisor", supervisorNode)
+  .addNode("IngestionAgent", ingestionSubGraph)
+  .addNode("InterviewerAgent", interviewerSubGraph)
+  .addNode("Persister", persisterNode)
   
-  // Phase 1
-  .addNode("Build_Ontology", buildOntology)
-  .addNode("Analyze_Skills", analyzeSkills)
-  .addNode("Skills_Interview", skillsInterview)
-  
-  // Phase 2
-  .addNode("Analyze_Education", analyzeEducation)
-  .addNode("Education_Interview", educationInterview)
-  
-  // Phase 3
-  .addNode("Analyze_Experience", analyzeExperience)
-  .addNode("Experience_Interview", experienceInterview)
-  .addNode("Compile_Extended_CV", compileExtendedCV)
+  .addEdge(START, "Supervisor")
+  .addConditionalEdges("Supervisor", supervisorRouter, {
+      Persister: "Persister",
+      IngestionAgent: "IngestionAgent",
+      InterviewerAgent: "InterviewerAgent",
+      [END]: END
+  })
+  .addConditionalEdges("IngestionAgent", subGraphRouter, {
+      Persister: "Persister",
+      Supervisor: "Supervisor"
+  })
+  .addConditionalEdges("InterviewerAgent", subGraphRouter, {
+      Persister: "Persister",
+      Supervisor: "Supervisor"
+  })
+  .addConditionalEdges("Persister", persisterRouter, {
+      Supervisor: "Supervisor"
+  });
 
-  .addEdge(START, "Fetch_Github")
-  .addEdge("Fetch_Github", "Clone_And_Concat")
-  .addEdge("Clone_And_Concat", "Generate_Embeddings")
-  .addEdge("Generate_Embeddings", "Build_Ontology")
-  .addEdge("Build_Ontology", "Analyze_Skills")
-  .addEdge("Analyze_Skills", "Skills_Interview")
-  .addEdge("Analyze_Education", "Education_Interview")
-  .addEdge("Analyze_Experience", "Experience_Interview");
-
-// If they gave an answer but the LLM still needs more info, we loop, else advance
-workflow.addConditionalEdges(
-  "Skills_Interview",
-  (state: ProfileGraphState) => {
-      return state.knowledgeGaps.length > 0 ? "Analyze_Skills" : "Analyze_Education";
-  }
-);
-
-workflow.addConditionalEdges(
-  "Education_Interview",
-  (state: ProfileGraphState) => state.knowledgeGaps.length > 0 ? "Analyze_Education" : "Analyze_Experience"
-);
-
-workflow.addConditionalEdges(
-  "Experience_Interview",
-  (state: ProfileGraphState) => state.knowledgeGaps.length > 0 ? "Analyze_Experience" : "Compile_Extended_CV"
-);
-
-workflow.addEdge("Compile_Extended_CV", END);
-
-import { MemorySaver } from "@langchain/langgraph";
-export const profileIngestionGraph = workflow.compile({
-  checkpointer: new MemorySaver()
-});
+export const appGraph = workflow.compile();

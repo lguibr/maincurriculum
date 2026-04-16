@@ -2,11 +2,10 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
-import { profileIngestionGraph } from "./agent/graph";
+import { appGraph } from "./agent/graph";
 import { Command } from "@langchain/langgraph";
 import { pool } from "./db/client";
 import { GoogleGenAI } from "@google/genai";
-import { EmbedderPipeline } from "./agent/nodes/ingestor";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -75,7 +74,7 @@ app.post("/api/ingest/start", async (req, res) => {
       }
     }
 
-    for await (const event of await profileIngestionGraph.streamEvents(
+    for await (const event of await appGraph.streamEvents(
       { githubUrl, baseCv, githubHandle, messages: preloadedMessages },
       { version: "v2", configurable: { thread_id: SINGLETON_THREAD_ID } }
     )) {
@@ -94,7 +93,7 @@ app.post("/api/ingest/start", async (req, res) => {
     }
 
     // Check if graph formally ended or suspended (interrupted)
-    const state = await profileIngestionGraph.getState({ configurable: { thread_id: SINGLETON_THREAD_ID } });
+    const state = await appGraph.getState({ configurable: { thread_id: SINGLETON_THREAD_ID } });
     if (state.tasks.some((t: any) => t.interrupts.length > 0)) {
       const payload = state.tasks[0]?.interrupts[0]?.value as { phase?: string, question?: string };
       if (activeSSEClient && payload) {
@@ -120,7 +119,7 @@ app.post("/api/ingest/answer", async (req, res) => {
 
   try {
     // Resume the graph by passing an explicit Command object resolving the interrupt
-    for await (const event of await profileIngestionGraph.streamEvents(
+    for await (const event of await appGraph.streamEvents(
       new Command({ resume: answer }),
       { version: "v2", configurable: { thread_id: SINGLETON_THREAD_ID } }
     )) {
@@ -130,7 +129,7 @@ app.post("/api/ingest/answer", async (req, res) => {
       }
     }
 
-    const state = await profileIngestionGraph.getState({ configurable: { thread_id: SINGLETON_THREAD_ID } });
+    const state = await appGraph.getState({ configurable: { thread_id: SINGLETON_THREAD_ID } });
     if (state.tasks.some((t: any) => t.interrupts.length > 0)) {
       const payload = state.tasks[0]?.interrupts[0]?.value as { phase?: string, question?: string };
       if (activeSSEClient && payload) {
