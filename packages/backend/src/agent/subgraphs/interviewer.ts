@@ -4,16 +4,17 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { INTERVIEWER_PROMPTS } from "../prompts/interviewer";
 import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import { RunnableConfig } from "@langchain/core/runnables";
-import { 
-    OnboardingProfileSchema, 
-    MissingInfoSchema, 
-    EnhancedInterviewSchema 
+import {
+    OnboardingProfileSchema,
+    MissingInfoSchema,
+    EnhancedInterviewSchema
 } from "../prompts/structuralSchemas";
 import { pool } from "../../db/client";
 
 const llm = new ChatGoogleGenerativeAI({
-  modelName: "gemini-3-pro", 
-  temperature: 0.1,
+    model: "gemini-3.1-pro-preview",
+    temperature: 1,
+    apiKey: process.env.GEMINI_API_KEY,
 });
 
 async function evaluateCompleteness(state: typeof StateAnnotation.State, config?: RunnableConfig) {
@@ -27,15 +28,15 @@ async function evaluateCompleteness(state: typeof StateAnnotation.State, config?
     }
 
     const evaluatorWithStructure = llm.withStructuredOutput(OnboardingProfileSchema);
-    
+
     const evaluation = await evaluatorWithStructure.invoke([
         { role: "system", content: INTERVIEWER_PROMPTS.completenessSystem },
         { role: "user", content: `Here is the current CV and profile info: \n\n${extendedCv}` }
     ], config);
 
-    return { 
+    return {
         missingInfoList: evaluation.missing_structural_areas || [],
-        missingCount: evaluation.missing_structural_areas ? evaluation.missing_structural_areas.length : 0 
+        missingCount: evaluation.missing_structural_areas ? evaluation.missing_structural_areas.length : 0
     };
 }
 
@@ -46,7 +47,7 @@ async function directInterview(state: typeof StateAnnotation.State, config?: Run
     }
 
     await dispatchCustomEvent("progress", { msg: `Drafting next interview question. Missing ${state.missingCount} areas.` }, config);
-    
+
     const targetArea = state.missingInfoList[0];
     const interviewLlm = llm.withStructuredOutput(EnhancedInterviewSchema);
 
@@ -63,8 +64,8 @@ async function directInterview(state: typeof StateAnnotation.State, config?: Run
         answer: "" // to be filled by user
     }];
 
-    return { 
-        interviewHistory: updatedHistory 
+    return {
+        interviewHistory: updatedHistory
     };
 }
 
@@ -95,7 +96,7 @@ async function improveCV(state: typeof StateAnnotation.State, config?: RunnableC
     ], config);
 
     const newCv = typeof res.content === 'string' ? res.content : JSON.stringify(res.content);
-    
+
     const writes: DbDirective[] = [];
     if (state.userProfileId) {
         writes.push({
@@ -110,13 +111,13 @@ async function improveCV(state: typeof StateAnnotation.State, config?: RunnableC
 
 // Subgraph orchestration for Interviewer
 const workflow = new StateGraph(StateAnnotation)
-  .addNode("Evaluate_Completeness", evaluateCompleteness)
-  .addNode("Improve_CV", improveCV)
-  .addNode("Direct_Interview", directInterview)
-  // Flow: Evaluate -> Improve (if pending answers) -> generate new question
-  .addEdge(START, "Evaluate_Completeness")
-  .addEdge("Evaluate_Completeness", "Improve_CV")
-  .addEdge("Improve_CV", "Direct_Interview")
-  .addEdge("Direct_Interview", END);
+    .addNode("Evaluate_Completeness", evaluateCompleteness)
+    .addNode("Improve_CV", improveCV)
+    .addNode("Direct_Interview", directInterview)
+    // Flow: Evaluate -> Improve (if pending answers) -> generate new question
+    .addEdge(START, "Evaluate_Completeness")
+    .addEdge("Evaluate_Completeness", "Improve_CV")
+    .addEdge("Improve_CV", "Direct_Interview")
+    .addEdge("Direct_Interview", END);
 
 export const interviewerSubGraph = workflow.compile();

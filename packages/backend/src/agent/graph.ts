@@ -1,20 +1,20 @@
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { StateAnnotation, ProfileGraphState } from "./state";
-import { persisterNode } from "./nodes/persisterNode";
+import { persisterNode } from "./nodes/persister";
 import { ingestionSubGraph } from "./subgraphs/ingestion";
 import { interviewerSubGraph } from "./subgraphs/interviewer";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { SUPERVISOR_PROMPTS } from "./prompts/supervisor";
 
 const llm = new ChatGoogleGenerativeAI({
-  modelName: "gemini-3-pro",
-  temperature: 0.1,
+    model: "gemini-3.1-pro-preview",
+    temperature: 1,
+    apiKey: process.env.GEMINI_API_KEY,
 });
 
 async function supervisorNode(state: typeof StateAnnotation.State) {
     // Check if we have db writes pending from a previous cycle that Supervisor happened to intercept (unlikely due to routing, but safe)
     if (state.pendingDbWrites && state.pendingDbWrites.length > 0) {
-        return {}; 
+        return {};
     }
 
     // Logic based Routing (can also use LLM for complex routing)
@@ -27,8 +27,8 @@ async function supervisorNode(state: typeof StateAnnotation.State) {
     }
 
     // Interview flow
-    if (state.missingCount !== 0 || (state.interviewHistory && state.interviewHistory.length > 0 && !state.interviewHistory[state.interviewHistory.length-1]?.answer)) {
-         return { nextAgent: "InterviewerAgent" };
+    if (state.missingCount !== 0 || (state.interviewHistory && state.interviewHistory.length > 0 && !state.interviewHistory[state.interviewHistory.length - 1]?.answer)) {
+        return { nextAgent: "InterviewerAgent" };
     }
 
     return { nextAgent: "END" };
@@ -57,28 +57,28 @@ function persisterRouter(state: typeof StateAnnotation.State) {
 }
 
 const workflow = new StateGraph(StateAnnotation)
-  .addNode("Supervisor", supervisorNode)
-  .addNode("IngestionAgent", ingestionSubGraph)
-  .addNode("InterviewerAgent", interviewerSubGraph)
-  .addNode("Persister", persisterNode)
-  
-  .addEdge(START, "Supervisor")
-  .addConditionalEdges("Supervisor", supervisorRouter, {
-      Persister: "Persister",
-      IngestionAgent: "IngestionAgent",
-      InterviewerAgent: "InterviewerAgent",
-      [END]: END
-  })
-  .addConditionalEdges("IngestionAgent", subGraphRouter, {
-      Persister: "Persister",
-      Supervisor: "Supervisor"
-  })
-  .addConditionalEdges("InterviewerAgent", subGraphRouter, {
-      Persister: "Persister",
-      Supervisor: "Supervisor"
-  })
-  .addConditionalEdges("Persister", persisterRouter, {
-      Supervisor: "Supervisor"
-  });
+    .addNode("Supervisor", supervisorNode)
+    .addNode("IngestionAgent", ingestionSubGraph)
+    .addNode("InterviewerAgent", interviewerSubGraph)
+    .addNode("Persister", persisterNode)
+
+    .addEdge(START, "Supervisor")
+    .addConditionalEdges("Supervisor", supervisorRouter, {
+        Persister: "Persister",
+        IngestionAgent: "IngestionAgent",
+        InterviewerAgent: "InterviewerAgent",
+        [END]: END
+    })
+    .addConditionalEdges("IngestionAgent", subGraphRouter, {
+        Persister: "Persister",
+        Supervisor: "Supervisor"
+    })
+    .addConditionalEdges("InterviewerAgent", subGraphRouter, {
+        Persister: "Persister",
+        Supervisor: "Supervisor"
+    })
+    .addConditionalEdges("Persister", persisterRouter, {
+        Supervisor: "Supervisor"
+    });
 
 export const appGraph = workflow.compile();

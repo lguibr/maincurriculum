@@ -80,7 +80,7 @@ export function useTailorAgent() {
         setActiveNodes(nodeNames);
         
         for (const nodeName of nodeNames) {
-          const stepState = event[nodeName];
+          const stepState = (event as Record<string, any>)[nodeName];
           
           if (nodeName === "Analyze_JD") addProgress("Analyzed Job Description. Extracted core skills.");
           else if (nodeName === "Profile_Match") addProgress(`Matched Profile. Selected projects: ${stepState.selected_projects?.join(", ")}`);

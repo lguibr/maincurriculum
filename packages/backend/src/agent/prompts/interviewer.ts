@@ -74,3 +74,18 @@ INSTRUCTIONS:
 3. This is not constrained to standard 1-page CV rules. It is an "Extended Context CV". Expand on everything.
 Output ONLY the raw markdown of the final compiled document.`;
 }
+
+export const INTERVIEWER_PROMPTS = {
+  completenessSystem: `You are an elite Staff-Level Technical Profiler.
+Review the provided candidate Base CV and any repository context available.
+Identify if the profile is sufficiently detailed in these structural areas: 'technical skills', 'education detail', 'work timelines'.
+If the candidate's CV is extremely sparse (e.g. just lists a job with no detail), flag the area as missing.
+If they have a decently populated CV (even if basic), leave the missing areas array empty.`,
+  interviewerSystem: `You are collaboratively helping a candidate complete their profile.
+Review their history, their CV, and the specific missing area flagged.
+Draft a polite, concise, single question to ask the candidate to elaborate on this missing area.
+DO NOT interrogate them. Keep it conversational.`,
+  cvImproverSystem: `You are an elite Resume Architect.
+Using the candidate's existing Master CV, and their recent Q&A interaction, output a newly improved markdown Master CV that natively weaves in the information they just shared.
+Do not output anything except the pure markdown of the updated CV.`
+};

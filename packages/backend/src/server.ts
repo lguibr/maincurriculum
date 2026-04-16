@@ -6,6 +6,7 @@ import { appGraph } from "./agent/graph";
 import { Command } from "@langchain/langgraph";
 import { pool } from "./db/client";
 import { GoogleGenAI } from "@google/genai";
+import { EmbedderPipeline } from "./agent/subgraphs/ingestion";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -76,7 +77,7 @@ app.post("/api/ingest/start", async (req, res) => {
 
     for await (const event of await appGraph.streamEvents(
       { githubUrl, baseCv, githubHandle, messages: preloadedMessages },
-      { version: "v2", configurable: { thread_id: SINGLETON_THREAD_ID } }
+      { version: "v2", recursionLimit: 150, configurable: { thread_id: SINGLETON_THREAD_ID } }
     )) {
       if (!activeSSEClient) continue;
 
@@ -88,8 +89,11 @@ app.post("/api/ingest/start", async (req, res) => {
           activeSSEClient.write(`data: ${JSON.stringify({ type: "interrupt", data: event.data })}\n\n`);
         }
       } else if (evtName === "on_chat_model_stream") {
-        activeSSEClient.write(`data: ${JSON.stringify({ type: "token", message: event.data.chunk.text })}\n\n`);
+        activeSSEClient.write(`data: ${JSON.stringify({ type: "token", message: event.data.chunk?.text || "" })}\n\n`);
       }
+      
+      // Emit the raw stream event for @langchain/react NodeCard UI compatibility
+      activeSSEClient.write(`data: ${JSON.stringify({ type: "langgraph_event", payload: event })}\n\n`);
     }
 
     // Check if graph formally ended or suspended (interrupted)
@@ -121,7 +125,7 @@ app.post("/api/ingest/answer", async (req, res) => {
     // Resume the graph by passing an explicit Command object resolving the interrupt
     for await (const event of await appGraph.streamEvents(
       new Command({ resume: answer }),
-      { version: "v2", configurable: { thread_id: SINGLETON_THREAD_ID } }
+      { version: "v2", recursionLimit: 150, configurable: { thread_id: SINGLETON_THREAD_ID } }
     )) {
       if (!activeSSEClient) continue;
       if (event.event === "on_custom_event") {

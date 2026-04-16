@@ -3,7 +3,8 @@ import { create } from 'zustand';
 interface SSEMessage {
   type: string;
   message?: string;
-  data?: any;
+  data?: Record<string, unknown>;
+  payload?: Record<string, unknown>;
 }
 
 interface AppState {
@@ -23,6 +24,8 @@ interface AppState {
   currentPhase: string;
   currentQuestion: string | null;
   isWizardComplete: boolean;
+  langgraphEvents: Record<string, unknown>[];
+  langgraphValues: Record<string, unknown>;
 
   // Actions
   startAgent: () => Promise<void>;
@@ -48,6 +51,8 @@ export const useStore = create<AppState>((set, get) => ({
   currentPhase: "Parsing Github...",
   currentQuestion: null,
   isWizardComplete: false,
+  langgraphEvents: [],
+  langgraphValues: {},
 
   setIsRunning: (val) => set({ isRunning: val }),
   setIsWizardComplete: (val) => set({ isWizardComplete: val }),
@@ -62,7 +67,9 @@ export const useStore = create<AppState>((set, get) => ({
       progress: 0,
       activeNodes: [],
       currentPhase: "Parsing Github...",
-      isWizardComplete: false
+      isWizardComplete: false,
+      langgraphEvents: [],
+      langgraphValues: {}
     });
 
     try {
@@ -78,6 +85,13 @@ export const useStore = create<AppState>((set, get) => ({
       eventSource.onmessage = (event) => {
         const parsed = JSON.parse(event.data) as SSEMessage;
         if (parsed.type === "ping") return;
+
+        if (parsed.type === "langgraph_event") {
+          if (parsed.payload) {
+             set((state) => ({ langgraphEvents: [...state.langgraphEvents, parsed.payload as Record<string, unknown>] }));
+          }
+          return;
+        }
 
         if (parsed.type === "log") {
           set((state) => {
@@ -114,8 +128,8 @@ export const useStore = create<AppState>((set, get) => ({
 
         if (parsed.type === "interrupt") {
           set((state) => ({
-             currentPhase: parsed.data.phase || "Interview Phase",
-             currentQuestion: parsed.data.question,
+             currentPhase: String(parsed.data?.phase || "Interview Phase"),
+             currentQuestion: parsed.data?.question as string | null,
              logs: [...state.logs, "Agent paused for user input..."]
           }));
         }
@@ -124,7 +138,8 @@ export const useStore = create<AppState>((set, get) => ({
           set({
              isRunning: false,
              isWizardComplete: true,
-             currentPhase: "Onboarding Complete"
+             currentPhase: "Onboarding Complete",
+             langgraphValues: { wizardCompleted: true }
           });
           eventSource?.close();
         }
@@ -136,7 +151,7 @@ export const useStore = create<AppState>((set, get) => ({
         set({ isRunning: false });
       };
 
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error("Failed to start agent:", e);
         set({ isRunning: false });
     }

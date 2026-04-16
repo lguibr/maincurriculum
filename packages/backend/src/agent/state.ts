@@ -27,6 +27,9 @@ export interface ProfileGraphState {
   knowledgeGaps: string[]; 
   messages: BaseMessage[]; 
   finalSQLDemographics: string;
+  missingCount: number;
+  missingInfoList: string[];
+  interviewHistory: { question: string; answer: string }[];
   
   // General UI Display
   currentPhase: string;
@@ -83,6 +86,18 @@ export const StateAnnotation = Annotation.Root({
   finalSQLDemographics: Annotation<string>({
     reducer: (a, b) => b || a,
     default: () => "",
+  }),
+  missingCount: Annotation<number>({
+    reducer: (a, b) => b !== undefined ? b : a,
+    default: () => 0,
+  }),
+  missingInfoList: Annotation<string[]>({
+    reducer: (a, b) => b || a,
+    default: () => [],
+  }),
+  interviewHistory: Annotation<{ question: string; answer: string }[]>({
+    reducer: (a, b) => b || a,
+    default: () => [],
   }),
   currentPhase: Annotation<string>({
     reducer: (a, b) => b || a,

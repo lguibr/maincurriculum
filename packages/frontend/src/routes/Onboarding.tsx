@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import ReactMarkdown from 'react-markdown';
 import { useStore } from "../store/useStore";
+import { NodeCardList, PipelineProgress, PIPELINE_NODES } from "../components/PipelineChat";
 
 export default function Onboarding() {
   const store = useStore();
@@ -124,23 +125,9 @@ export default function Onboarding() {
                     <p className="text-sm opacity-60 mt-2 max-w-[300px] mx-auto">Fill out the payload to the left and click Launch to execute the workflow phase checkpoints.</p>
                   </div>
                ) : !store.currentQuestion ? (
-                  <div className="flex flex-col items-center justify-center text-primary h-full w-full max-w-sm mx-auto">
-                    <Loader2 className="w-12 h-12 animate-spin mb-6" />
-                    <p className="text-lg font-mono animate-pulse text-center">{store.currentPhase}</p>
-                    
-                    {store.progress > 0 && store.progress < 100 && (
-                      <div className="w-full mt-6 flex flex-col items-center">
-                        <div className="h-3 w-full bg-primary/10 rounded-full overflow-hidden border border-primary/20 shadow-inner">
-                           <div 
-                             className="h-full bg-primary transition-all duration-300 ease-out" 
-                             style={{ width: `${store.progress}%` }} 
-                           />
-                        </div>
-                        <p className="text-center text-xs mt-3 text-muted-foreground font-mono bg-muted/30 px-3 py-1 rounded-md">
-                           {Math.round(store.progress)}%
-                        </p>
-                      </div>
-                    )}
+                  <div className="flex flex-col items-center justify-start text-primary h-full w-full max-w-2xl mx-auto py-2">
+                    <PipelineProgress nodes={PIPELINE_NODES} events={store.langgraphEvents} values={store.langgraphValues} />
+                    <NodeCardList nodes={PIPELINE_NODES} events={store.langgraphEvents} values={store.langgraphValues} />
                   </div>
                ) : (
                   <div className="flex flex-col h-full justify-between items-center w-full animate-in fade-in duration-500">
@@ -154,7 +141,7 @@ export default function Onboarding() {
                              size="icon" 
                              className="h-8 w-8 text-muted-foreground hover:text-primary transition-all hover:bg-primary/20 hover:scale-105"
                              onClick={() => {
-                               navigator.clipboard.writeText(store.currentQuestion);
+                               navigator.clipboard.writeText(store.currentQuestion || "");
                                setIsCopied(true);
                                setTimeout(() => setIsCopied(false), 2000);
                              }}
