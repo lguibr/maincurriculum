@@ -18,7 +18,7 @@ async function draftCV(state: typeof StateAnnotation.State, config?: RunnableCon
     state.messages.length > 0 ? state.messages[state.messages.length - 1].content : "";
 
   const llmWithTools = llm.bindTools([searchGithubProjectsTool, querySkillsAndExperiencesTool]);
-  let msgs: any[] = [
+  const msgs: any[] = [
     {
       role: "system",
       content:
@@ -83,7 +83,7 @@ async function critiqueTruth(state: typeof StateAnnotation.State, config?: Runna
     config
   );
   const truthLlm = llm.bindTools([searchGithubProjectsTool]);
-  let msgs: any[] = [
+  const msgs: any[] = [
     {
       role: "system",
       content:
@@ -105,7 +105,7 @@ async function critiqueTruth(state: typeof StateAnnotation.State, config?: Runna
   }
 
   // Evaluate if tool calls were made or what text it replied with
-  let critiqueText =
+  const critiqueText =
     typeof evalResult.content === "string"
       ? evalResult.content
       : JSON.stringify(evalResult.content);
@@ -120,7 +120,7 @@ async function critiqueSkills(state: typeof StateAnnotation.State, config?: Runn
     config
   );
   const skillLlm = llm.bindTools([querySkillsAndExperiencesTool]);
-  let msgs: any[] = [
+  const msgs: any[] = [
     {
       role: "system",
       content:
@@ -140,7 +140,7 @@ async function critiqueSkills(state: typeof StateAnnotation.State, config?: Runn
     }
     evalResult = await skillLlm.invoke(msgs, config);
   }
-  let critiqueText =
+  const critiqueText =
     typeof evalResult.content === "string"
       ? evalResult.content
       : JSON.stringify(evalResult.content);
@@ -213,7 +213,8 @@ async function consolidateCV(state: typeof StateAnnotation.State, config?: Runna
       config
     );
 
-    let fixedContent = typeof fixed.content === "string" ? fixed.content : state.workingExtendedCv;
+    const fixedContent =
+      typeof fixed.content === "string" ? fixed.content : state.workingExtendedCv;
 
     // Return fixed CV and clear critiques
     return {

@@ -53,7 +53,7 @@ export default function Improve() {
         body: JSON.stringify({ message: messageText, extendedCv: currentCvContent }),
       });
 
-      let aiFullText = "";
+      const aiFullText = "";
 
       // Setup SSE connection to listen for stream events on the backend
       // Note: the backend uses SSE but the POST request above triggers the streamEvents via a global context, wait...

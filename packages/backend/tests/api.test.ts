@@ -17,11 +17,9 @@ vi.mock("@google/genai", () => {
   return {
     GoogleGenAI: vi.fn().mockImplementation(() => ({
       models: {
-        generateContent: vi
-          .fn()
-          .mockResolvedValue({
-            text: '{"tailoredCv": "mock_cv", "coverLetter": "mock_cl", "employerAnswers": "mock_qa"}',
-          }),
+        generateContent: vi.fn().mockResolvedValue({
+          text: '{"tailoredCv": "mock_cv", "coverLetter": "mock_cl", "employerAnswers": "mock_qa"}',
+        }),
         embedContent: vi.fn().mockResolvedValue({ embeddings: [{ values: [0.1, 0.2, 0.3] }] }),
       },
     })),

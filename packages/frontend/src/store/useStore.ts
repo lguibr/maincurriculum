@@ -106,7 +106,7 @@ export const useStore = create<AppState>((set, get) => ({
             const msg = parsed.message || "";
 
             // Repo X/Y Processing
-            let repoMatch = msg.match(/\[Repo\s+(\d+)\/(\d+)\]\s+(.*)/);
+            const repoMatch = msg.match(/\[Repo\s+(\d+)\/(\d+)\]\s+(.*)/);
             if (repoMatch) {
               pgr = (parseInt(repoMatch[1]) / parseInt(repoMatch[2])) * 100;
               phase = repoMatch[3];

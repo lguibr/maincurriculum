@@ -71,7 +71,7 @@ async function directInterview(state: typeof StateAnnotation.State, config?: Run
   const interviewLlm = llm.withStructuredOutput(EnhancedInterviewSchema);
 
   // History
-  let historyText =
+  const historyText =
     state.interviewHistory?.map((h) => `Q: ${h.question}\nA: ${h.answer}`).join("\n") ||
     "No previous questions.";
 

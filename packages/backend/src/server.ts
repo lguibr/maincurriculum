@@ -62,7 +62,7 @@ app.post("/api/ingest/start", async (req, res) => {
   const githubHandle = githubUrl.split("/").pop() || "";
 
   try {
-    let preloadedMessages: any[] = [];
+    const preloadedMessages: any[] = [];
     const latestProfileReq = await pool.query(
       "SELECT demographics_json FROM user_profiles WHERE github_handle = $1 ORDER BY id DESC LIMIT 1",
       [githubHandle]
@@ -176,7 +176,7 @@ app.post("/api/improver/chat", async (req, res) => {
   res.status(200).json({ status: "Chat received" });
 
   try {
-    let payload: any = {
+    const payload: any = {
       currentPhase: "Improver",
     };
     if (message) {
@@ -298,7 +298,7 @@ app.post("/api/tailor", async (req, res) => {
       [vector, profileId]
     );
 
-    let context = similaritySearch.rows
+    const context = similaritySearch.rows
       .map((r: any) => `Repo: ${r.repo_name}\n${r.chunk_text}`)
       .join("\n\n");
     const prompt = `You are an expert technical recruiter and resume writer. 
@@ -390,7 +390,7 @@ app.post("/api/improve", async (req, res) => {
       [profileId]
     );
 
-    let context = summarySearch.rows
+    const context = summarySearch.rows
       .map((r: any) => `Repo: ${r.repo_name}\n${r.chunk_text}`)
       .join("\n\n");
     const prompt = `You are a strict, top-tier technical CV reviewer. 

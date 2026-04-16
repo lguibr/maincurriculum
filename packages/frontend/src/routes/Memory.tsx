@@ -150,7 +150,9 @@ export default function Memory() {
               let parsed: any = {};
               try {
                 parsed = JSON.parse(memoryJson);
-              } catch (e) {}
+              } catch (e) {
+                // Ignore parse errors from temporary malformed JSON state
+              }
               const getProjectName = (id: string) =>
                 parsed.projects?.find(
                   (p: any) => p.id === id || p.name === id || p.repo_name === id
