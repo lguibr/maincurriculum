@@ -13,28 +13,23 @@ export default function App() {
 
   useEffect(() => {
     if (!isWizardComplete) {
-       fetch(`http://${window.location.hostname}:3001/api/profile/latest`)
-         .then(r => r.json())
-         .then(d => {
-             if (d && d.id) {
-                setIsWizardComplete(true);
-             }
-         }).catch(() => {});
+      fetch(`http://${window.location.hostname}:3001/api/profile/latest`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d && d.id) {
+            setIsWizardComplete(true);
+          }
+        })
+        .catch(() => {});
     }
   }, [isWizardComplete, setIsWizardComplete]);
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route 
-          path="/onboarding" 
-          element={<Onboarding />} 
-        />
-        
-        <Route 
-          path="/" 
-          element={isWizardComplete ? <Dashboard /> : <Navigate to="/onboarding" />}
-        >
+        <Route path="/onboarding" element={<Onboarding />} />
+
+        <Route path="/" element={isWizardComplete ? <Dashboard /> : <Navigate to="/onboarding" />}>
           <Route index element={<Tailor />} />
           <Route path="tailor" element={<Tailor />} />
           <Route path="improve" element={<Improve />} />

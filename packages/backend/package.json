@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "test": "vitest run",
-    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
     "db:reset": "tsx scripts/reset-db.ts"
   },
   "dependencies": {

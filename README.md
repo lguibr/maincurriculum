@@ -4,7 +4,7 @@
 
 # Main Curriculum — AI Workspace
 
-Welcome to **Main Curriculum**, the command center for your professional AI workflow! This robust monolithic workspace provides all the necessary autonomous agents required to upgrade, tailor, and index your professional profile. 
+Welcome to **Main Curriculum**, the command center for your professional AI workflow! This robust monolithic workspace provides all the necessary autonomous agents required to upgrade, tailor, and index your professional profile.
 
 Built with modern architectures, this workspace powers autonomous interactions directly on your local machine using concurrent React environments and dynamic, graph-based agents.
 
@@ -41,4 +41,4 @@ This monorepo utilizes an NPM workspace configuration:
 - **CV Improver**: An agentic pipeline that critiques and enhances your resume.
 - **Vector Context Memory**: Persist details locally so your agents have enduring context.
 
-> *Note: For immediate assistance and full context wiping, refer to the "Command Center" danger zone settings on your local dashboard.*
+> _Note: For immediate assistance and full context wiping, refer to the "Command Center" danger zone settings on your local dashboard._

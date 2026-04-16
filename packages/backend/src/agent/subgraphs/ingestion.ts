@@ -17,58 +17,109 @@ const execAsync = promisify(exec);
 env.allowLocalModels = true;
 
 export class EmbedderPipeline {
-    static task = 'feature-extraction';
-    static model = 'Xenova/all-MiniLM-L6-v2';
-    static instancePromise: Promise<any> | null = null;
-    static instance: any = null;
+  static task = "feature-extraction";
+  static model = "Xenova/all-MiniLM-L6-v2";
+  static instancePromise: Promise<any> | null = null;
+  static instance: any = null;
 
-    static async getInstance() {
-        if (!this.instancePromise) {
-            this.instancePromise = pipeline(this.task as any, this.model, { quantized: true });
-            this.instance = await this.instancePromise;
-        }
-        return this.instance;
+  static async getInstance() {
+    if (!this.instancePromise) {
+      this.instancePromise = pipeline(this.task as any, this.model, { quantized: true });
+      this.instance = await this.instancePromise;
     }
+    return this.instance;
+  }
 }
 
 // ---------------- Tools ------------------ //
 
-const fetchGithubTool = tool(async ({ handle }, config) => {
+const fetchGithubTool = tool(
+  async ({ handle }, config) => {
     await dispatchCustomEvent("progress", { msg: `Fetching GitHub repos for ${handle}` }, config);
     const fetchHeaders: any = {};
-    if (process.env.GITHUB_TOKEN) fetchHeaders["Authorization"] = `Bearer ${process.env.GITHUB_TOKEN}`;
+    if (process.env.GITHUB_TOKEN)
+      fetchHeaders["Authorization"] = `Bearer ${process.env.GITHUB_TOKEN}`;
     let repos: any[] = [];
     let page = 1;
     while (true) {
-        const response = await fetch(`https://api.github.com/users/${handle}/repos?type=owner&sort=updated&per_page=100&page=${page}`, { headers: fetchHeaders });
-        const batch = await response.json();
-        if (!Array.isArray(batch) || batch.length === 0) break;
-        repos = repos.concat(batch);
-        page++;
+      const response = await fetch(
+        `https://api.github.com/users/${handle}/repos?type=owner&sort=updated&per_page=100&page=${page}`,
+        { headers: fetchHeaders }
+      );
+      const batch = await response.json();
+      if (!Array.isArray(batch) || batch.length === 0) break;
+      repos = repos.concat(batch);
+      page++;
     }
-    return JSON.stringify(repos.filter((r: any) => !r.fork).map((r: any) => ({
-        name: r.name, url: r.html_url, description: r.description
-    })));
-}, { name: "fetch_github_repos", description: "Fetch public non-fork repos for a given github handle", schema: z.object({ handle: z.string() }) });
+    const finalRepos = repos
+      .filter((r: any) => !r.fork)
+      .map((r: any) => ({
+        name: r.name,
+        url: r.html_url,
+        description: r.description,
+      }));
+    await dispatchCustomEvent(
+      "progress",
+      { msg: `Found ${finalRepos.length} target repositories.` },
+      config
+    );
+    return JSON.stringify(finalRepos);
+  },
+  {
+    name: "fetch_github_repos",
+    description: "Fetch public non-fork repos for a given github handle",
+    schema: z.object({ handle: z.string() }),
+  }
+);
 
-const cloneRepoTool = tool(async ({ repoUrl, repoName }, config) => {
+const cloneRepoTool = tool(
+  async ({ repoUrl, repoName, index, total }, config) => {
     const tmpDir = path.resolve(process.cwd(), "../../temp_repos");
     const repoPath = path.join(tmpDir, repoName);
     let exists = false;
-    try { await fs.access(repoPath); exists = true; } catch { }
+    try {
+      await fs.access(repoPath);
+      exists = true;
+    } catch {}
+
+    const tag = index !== undefined && total !== undefined ? `[Repo ${index}/${total}] ` : "";
 
     if (!exists) {
-        await dispatchCustomEvent("progress", { msg: `Cloning ${repoName}` }, config);
-        await execAsync(`git clone --depth 1 ${repoUrl} ${repoPath}`);
+      await dispatchCustomEvent("progress", { msg: `${tag}Cloning ${repoName}...` }, config);
+      await execAsync(`git clone --depth 1 ${repoUrl} ${repoPath}`);
     } else {
-        await dispatchCustomEvent("progress", { msg: `Pulling latest for ${repoName}` }, config);
-        try { await execAsync(`git -C ${repoPath} pull`); } catch { }
+      await dispatchCustomEvent(
+        "progress",
+        { msg: `${tag}Pulling latest for ${repoName}...` },
+        config
+      );
+      try {
+        await execAsync(`git -C ${repoPath} pull`);
+      } catch {}
     }
     return `Repository ${repoName} is securely sandbox mounted at ${repoPath}`;
-}, { name: "clone_repo", description: "Clones a git repo to the local filesystem for the underlying deepagent backend to access", schema: z.object({ repoName: z.string(), repoUrl: z.string() }) });
+  },
+  {
+    name: "clone_repo",
+    description:
+      "Clones a git repo to the local filesystem for the underlying deepagent backend to access",
+    schema: z.object({
+      repoName: z.string(),
+      repoUrl: z.string(),
+      index: z.number().optional(),
+      total: z.number().optional(),
+    }),
+  }
+);
 
-const embedProjectTool = tool(async ({ repoName, textContent, userProfileId }, config) => {
-    await dispatchCustomEvent("progress", { msg: `Embedding ${repoName} logic...` }, config);
+const embedProjectTool = tool(
+  async ({ repoName, textContent, userProfileId, index, total }, config) => {
+    const tag = index !== undefined && total !== undefined ? `[Repo ${index}/${total}] ` : "";
+    await dispatchCustomEvent(
+      "progress",
+      { msg: `${tag}Embedding ${repoName} high-level logic...` },
+      config
+    );
     const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 4000, chunkOverlap: 200 });
     const docs = await splitter.createDocuments([textContent.slice(0, 16000)]);
     const embedder = await EmbedderPipeline.getInstance();
@@ -76,65 +127,100 @@ const embedProjectTool = tool(async ({ repoName, textContent, userProfileId }, c
     const BATCH_SIZE = 16;
     const dbWrites: DbDirective[] = [];
     dbWrites.push({
-        targetTable: 'projects_raw_text', action: 'upsert',
-        data: { repo_name: repoName, raw_text: textContent, user_profile_id: userProfileId }
+      targetTable: "projects_raw_text",
+      action: "upsert",
+      data: { repo_name: repoName, raw_text: textContent, user_profile_id: userProfileId },
     });
 
-    // We mock project_id as undefined for upsert logic simplicity in the Persister
     for (let i = 0; i < docs.length; i += BATCH_SIZE) {
-        const batchDocs = docs.slice(i, i + BATCH_SIZE);
-        const batchTexts = batchDocs.map(d => d.pageContent);
-        try {
-            const response = await embedder(batchTexts, { pooling: 'mean', normalize: true });
-            const embeddingsList = response.tolist();
-            for (let j = 0; j < embeddingsList.length; j++) {
-                dbWrites.push({
-                    targetTable: 'project_embeddings', action: 'insert',
-                    data: { chunk_index: i + j, chunk_text: batchTexts[j], embedding: `[${embeddingsList[j].join(",")}]`, _repoNameRef: repoName } // mock ref for persister
-                });
-            }
-        } catch { }
+      const batchDocs = docs.slice(i, i + BATCH_SIZE);
+      const batchTexts = batchDocs.map((d) => d.pageContent);
+      try {
+        const response = await embedder(batchTexts, { pooling: "mean", normalize: true });
+        const embeddingsList = response.tolist();
+        for (let j = 0; j < embeddingsList.length; j++) {
+          dbWrites.push({
+            targetTable: "project_embeddings",
+            action: "insert",
+            data: {
+              chunk_index: i + j,
+              chunk_text: batchTexts[j],
+              embedding: `[${embeddingsList[j].join(",")}]`,
+              _repoNameRef: repoName,
+            },
+          });
+        }
+      } catch {}
     }
     return JSON.stringify(dbWrites);
-}, { name: "embed_project", description: "Generate vector embeddings for repository text and return DB directives", schema: z.object({ repoName: z.string(), textContent: z.string(), userProfileId: z.number().optional() }) });
+  },
+  {
+    name: "embed_project",
+    description: "Generate vector embeddings for repository text and return DB directives",
+    schema: z.object({
+      repoName: z.string(),
+      textContent: z.string(),
+      userProfileId: z.number().optional(),
+      index: z.number().optional(),
+      total: z.number().optional(),
+    }),
+  }
+);
 
 // ---------------- DeepAgent Setup ------------------ //
 
-const fsBackend = new FilesystemBackend({ rootDir: path.resolve(process.cwd(), "../../temp_repos") });
+const fsBackend = new FilesystemBackend({
+  rootDir: path.resolve(process.cwd(), "../../temp_repos"),
+});
 
 const deeperIngestionAgent = createDeepAgent({
-    name: "ingestion",
-    model: new ChatGoogleGenerativeAI({
-        model: "gemini-3.1-pro-preview",
-        temperature: 1,
-        apiKey: process.env.GEMINI_API_KEY,
-    }),
-    backend: fsBackend,
-    systemPrompt: `You are a Repository Processing deepagent. 
-1. Use fetch_github_repos to get the list.
-2. Use clone_repo to clone them.
-3. Access their local files using your built-in sandboxed file system tools. Summarize the logic.
-4. Finally, use embed_project on the analyzed repos to return database directives.
-Wrap up your findings and append the actual Database directives to your final message output in JSON format surrounded by <directives> tags.`,
-    tools: [fetchGithubTool, cloneRepoTool, embedProjectTool]
+  name: "ingestion",
+  model: new ChatGoogleGenerativeAI({
+    model: "gemini-3.1-pro-preview",
+    temperature: 1,
+    apiKey: process.env.GEMINI_API_KEY,
+  }),
+  backend: fsBackend,
+  systemPrompt: `You are an elite Repository Processing deepagent. 
+1. Use fetch_github_repos to get the list of repositories available for this handle.
+2. For EACH repository found (pass \`index\` and \`total\` parameters when cloning and embedding):
+   a. Use clone_repo to clone it.
+   b. CRITICAL: Use your sandboxed filesystem tools to explicitly read "package.json", "Cargo.toml", "requirements.txt", or any index file present. You MUST understand its dependencies and high-level architectural logic.
+   c. Summarize this logic deeply, including specific frameworks discovered.
+   d. Run embed_project on the analyzed repo to save your architectural context.
+3. When finished with ALL repos, wrap up your findings and append the Database directives to your final message output in JSON format surrounded by <directives> tags.`,
+  tools: [fetchGithubTool, cloneRepoTool, embedProjectTool],
 });
 
 // ---------------- StateGraph Node ------------------ //
 
-export async function ingestionSubGraph(state: typeof StateAnnotation.State, config?: RunnableConfig) {
-    // 1. We execute the deepagent once using the current handle.
-    const runResult = await deeperIngestionAgent.invoke({
-        messages: [{ role: "user", content: `Please ingest github handle: ${state.githubHandle} and output DB directives.` }]
-    } as any, config);
+export async function ingestionSubGraph(
+  state: typeof StateAnnotation.State,
+  config?: RunnableConfig
+) {
+  // 1. We execute the deepagent once using the current handle.
+  const runResult = await deeperIngestionAgent.invoke(
+    {
+      messages: [
+        {
+          role: "user",
+          content: `Please ingest github handle: ${state.githubHandle} and output DB directives.`,
+        },
+      ],
+    } as any,
+    config
+  );
 
-    const lastMsg = runResult.messages[runResult.messages.length - 1].content.toString();
+  const lastMsg = runResult.messages[runResult.messages.length - 1].content.toString();
 
-    // 2. Parse out directives from the deepagent's final output
-    const directivesMatch = lastMsg.match(/<directives>([\s\S]*?)<\/directives>/);
-    let parsedDirectives: DbDirective[] = [];
-    if (directivesMatch && directivesMatch[1]) {
-        try { parsedDirectives = JSON.parse(directivesMatch[1]); } catch { }
-    }
+  // 2. Parse out directives from the deepagent's final output
+  const directivesMatch = lastMsg.match(/<directives>([\s\S]*?)<\/directives>/);
+  let parsedDirectives: DbDirective[] = [];
+  if (directivesMatch && directivesMatch[1]) {
+    try {
+      parsedDirectives = JSON.parse(directivesMatch[1]);
+    } catch {}
+  }
 
-    return { pendingDbWrites: parsedDirectives, currentPhase: "Build Ontology" };
+  return { pendingDbWrites: parsedDirectives, currentPhase: "Build Ontology" };
 }

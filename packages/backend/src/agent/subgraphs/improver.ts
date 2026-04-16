@@ -6,169 +6,260 @@ import { searchGithubProjectsTool, querySkillsAndExperiencesTool } from "../tool
 import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 
 const llm = new ChatGoogleGenerativeAI({
-    model: "gemini-3.1-pro-preview",
-    temperature: 0.7, // slightly lower for truthfulness, but creative enough to draft
-    apiKey: process.env.GEMINI_API_KEY,
+  model: "gemini-3.1-pro-preview",
+  temperature: 0.7, // slightly lower for truthfulness, but creative enough to draft
+  apiKey: process.env.GEMINI_API_KEY,
 });
 
 async function draftCV(state: typeof StateAnnotation.State, config?: RunnableConfig) {
-    await dispatchCustomEvent("progress", { msg: "Drafting Extended CV context..." }, config);
-    // Find latest Human message
-    const lastMsg = state.messages.length > 0 ? state.messages[state.messages.length - 1].content : "";
-    
-    const llmWithTools = llm.bindTools([searchGithubProjectsTool, querySkillsAndExperiencesTool]);
-    let msgs: any[] = [
-        { role: "system", content: "You are drafting the Extensive Master CV based on user requests. Call tools to fetch vector data from their github repos or demographic data if needed. Do not hallucinate. Provide raw markdown of the CV. Only output markdown." },
-        { role: "user", content: `Current CV:\n${state.workingExtendedCv || state.baseCv}\n\nRecent User Input:\n${lastMsg}` }
-    ];
-    let draftCompletion = await llmWithTools.invoke(msgs, config);
-    
-    // Manual tool loop
-    if (draftCompletion.tool_calls && draftCompletion.tool_calls.length > 0) {
-        msgs.push(draftCompletion);
-        for (const call of draftCompletion.tool_calls) {
-            if (call.name === "search_github_projects") {
-                const res = await searchGithubProjectsTool.invoke(call);
-                msgs.push({ role: "tool", tool_call_id: call.id, content: res, name: call.name });
-            } else if (call.name === "query_skills_and_experiences") {
-                const res = await querySkillsAndExperiencesTool.invoke(call);
-                msgs.push({ role: "tool", tool_call_id: call.id, content: res, name: call.name });
-            }
-        }
-        draftCompletion = await llmWithTools.invoke(msgs, config);
-    }
+  await dispatchCustomEvent("progress", { msg: "Drafting Extended CV context..." }, config);
+  // Find latest Human message
+  const lastMsg =
+    state.messages.length > 0 ? state.messages[state.messages.length - 1].content : "";
 
-    let draftContent = "";
-    if (typeof draftCompletion.content === "string") {
-        draftContent = draftCompletion.content;
-    }
+  const llmWithTools = llm.bindTools([searchGithubProjectsTool, querySkillsAndExperiencesTool]);
+  let msgs: any[] = [
+    {
+      role: "system",
+      content:
+        "You are drafting the Extensive Master CV based on user requests. Call tools to fetch vector data from their github repos or demographic data if needed. Do not hallucinate. Provide raw markdown of the CV. Only output markdown.",
+    },
+    {
+      role: "user",
+      content: `Current CV:\n${state.workingExtendedCv || state.baseCv}\n\nRecent User Input:\n${lastMsg}`,
+    },
+  ];
+  let draftCompletion = await llmWithTools.invoke(msgs, config);
 
-    return { workingExtendedCv: draftContent };
+  // Manual tool loop
+  if (draftCompletion.tool_calls && draftCompletion.tool_calls.length > 0) {
+    msgs.push(draftCompletion);
+    for (const call of draftCompletion.tool_calls) {
+      if (call.name === "search_github_projects") {
+        const res = await searchGithubProjectsTool.invoke(call);
+        msgs.push({ role: "tool", tool_call_id: call.id, content: res, name: call.name });
+      } else if (call.name === "query_skills_and_experiences") {
+        const res = await querySkillsAndExperiencesTool.invoke(call);
+        msgs.push({ role: "tool", tool_call_id: call.id, content: res, name: call.name });
+      }
+    }
+    draftCompletion = await llmWithTools.invoke(msgs, config);
+  }
+
+  let draftContent = "";
+  if (typeof draftCompletion.content === "string") {
+    draftContent = draftCompletion.content;
+  }
+
+  return { workingExtendedCv: draftContent };
 }
 
 // Critique 1
 async function critiqueTone(state: typeof StateAnnotation.State, config?: RunnableConfig) {
-    await dispatchCustomEvent("progress", { msg: "[Critique Tone] Evaluating braggadocio vs impact..." }, config);
-    const evalResult = await llm.invoke([
-        { role: "system", content: "Analyze the following CV. Does it sound 'show off' or obnoxious? Too weak? Provide a 1-sentence critique. If perfect, simply output EXACTLY 'PASS'." },
-        { role: "user", content: state.workingExtendedCv }
-    ], config);
-    return { critiqueFeedback: evalResult.content === "PASS" ? [] : [`Tone: ${evalResult.content}`] };
+  await dispatchCustomEvent(
+    "progress",
+    { msg: "[Critique Tone] Evaluating braggadocio vs impact..." },
+    config
+  );
+  const evalResult = await llm.invoke(
+    [
+      {
+        role: "system",
+        content:
+          "Analyze the following CV. Does it sound 'show off' or obnoxious? Too weak? Provide a 1-sentence critique. If perfect, simply output EXACTLY 'PASS'.",
+      },
+      { role: "user", content: state.workingExtendedCv },
+    ],
+    config
+  );
+  return { critiqueFeedback: evalResult.content === "PASS" ? [] : [`Tone: ${evalResult.content}`] };
 }
 
 // Critique 2
 async function critiqueTruth(state: typeof StateAnnotation.State, config?: RunnableConfig) {
-    await dispatchCustomEvent("progress", { msg: "[Critique Truth] Validating claims against vector embeddings..." }, config);
-    const truthLlm = llm.bindTools([searchGithubProjectsTool]);
-    let msgs: any[] = [
-        { role: "system", content: "Analyze the CV for suspicious or overly complex claims. Use tool 'search_github_projects' to verify if they actually built what they claim. If lying or unsupported, provide a strict critique. If supported, exactly output 'PASS'." },
-        { role: "user", content: state.workingExtendedCv }
-    ];
-    let evalResult = await truthLlm.invoke(msgs, config);
-    
-    if (evalResult.tool_calls && evalResult.tool_calls.length > 0) {
-        msgs.push(evalResult);
-        for (const call of evalResult.tool_calls) {
-            if (call.name === "search_github_projects") {
-                const res = await searchGithubProjectsTool.invoke(call);
-                msgs.push({ role: "tool", tool_call_id: call.id, content: res, name: call.name });
-            }
-        }
-        evalResult = await truthLlm.invoke(msgs, config);
+  await dispatchCustomEvent(
+    "progress",
+    { msg: "[Critique Truth] Validating claims against vector embeddings..." },
+    config
+  );
+  const truthLlm = llm.bindTools([searchGithubProjectsTool]);
+  let msgs: any[] = [
+    {
+      role: "system",
+      content:
+        "Analyze the CV for suspicious or overly complex claims. Use tool 'search_github_projects' to verify if they actually built what they claim. If lying or unsupported, provide a strict critique. If supported, exactly output 'PASS'.",
+    },
+    { role: "user", content: state.workingExtendedCv },
+  ];
+  let evalResult = await truthLlm.invoke(msgs, config);
+
+  if (evalResult.tool_calls && evalResult.tool_calls.length > 0) {
+    msgs.push(evalResult);
+    for (const call of evalResult.tool_calls) {
+      if (call.name === "search_github_projects") {
+        const res = await searchGithubProjectsTool.invoke(call);
+        msgs.push({ role: "tool", tool_call_id: call.id, content: res, name: call.name });
+      }
     }
-    
-    // Evaluate if tool calls were made or what text it replied with
-    let critiqueText = typeof evalResult.content === "string" ? evalResult.content : JSON.stringify(evalResult.content);
-    return { critiqueFeedback: critiqueText.includes("PASS") ? [] : [`Truth: ${critiqueText}`] };
+    evalResult = await truthLlm.invoke(msgs, config);
+  }
+
+  // Evaluate if tool calls were made or what text it replied with
+  let critiqueText =
+    typeof evalResult.content === "string"
+      ? evalResult.content
+      : JSON.stringify(evalResult.content);
+  return { critiqueFeedback: critiqueText.includes("PASS") ? [] : [`Truth: ${critiqueText}`] };
 }
 
 // Critique 3
 async function critiqueSkills(state: typeof StateAnnotation.State, config?: RunnableConfig) {
-    await dispatchCustomEvent("progress", { msg: "[Critique Skills] Cross-referencing ontology..." }, config);
-    const skillLlm = llm.bindTools([querySkillsAndExperiencesTool]);
-    let msgs: any[] = [
-        { role: "system", content: "Verify the CV strictly utilizes the skills found in the user's demographic DB. Query it. If it invents unlisted skills, fail it. Otherwise output 'PASS'." },
-        { role: "user", content: state.workingExtendedCv }
-    ];
-    let evalResult = await skillLlm.invoke(msgs, config);
-    
-    if (evalResult.tool_calls && evalResult.tool_calls.length > 0) {
-        msgs.push(evalResult);
-        for (const call of evalResult.tool_calls) {
-            if (call.name === "query_skills_and_experiences") {
-                const res = await querySkillsAndExperiencesTool.invoke(call);
-                msgs.push({ role: "tool", tool_call_id: call.id, content: res, name: call.name });
-            }
-        }
-        evalResult = await skillLlm.invoke(msgs, config);
+  await dispatchCustomEvent(
+    "progress",
+    { msg: "[Critique Skills] Cross-referencing ontology..." },
+    config
+  );
+  const skillLlm = llm.bindTools([querySkillsAndExperiencesTool]);
+  let msgs: any[] = [
+    {
+      role: "system",
+      content:
+        "Verify the CV strictly utilizes the skills found in the user's demographic DB. Query it. If it invents unlisted skills, fail it. Otherwise output 'PASS'.",
+    },
+    { role: "user", content: state.workingExtendedCv },
+  ];
+  let evalResult = await skillLlm.invoke(msgs, config);
+
+  if (evalResult.tool_calls && evalResult.tool_calls.length > 0) {
+    msgs.push(evalResult);
+    for (const call of evalResult.tool_calls) {
+      if (call.name === "query_skills_and_experiences") {
+        const res = await querySkillsAndExperiencesTool.invoke(call);
+        msgs.push({ role: "tool", tool_call_id: call.id, content: res, name: call.name });
+      }
     }
-    let critiqueText = typeof evalResult.content === "string" ? evalResult.content : JSON.stringify(evalResult.content);
-    return { critiqueFeedback: critiqueText.includes("PASS") ? [] : [`Skills: ${critiqueText}`] };
+    evalResult = await skillLlm.invoke(msgs, config);
+  }
+  let critiqueText =
+    typeof evalResult.content === "string"
+      ? evalResult.content
+      : JSON.stringify(evalResult.content);
+  return { critiqueFeedback: critiqueText.includes("PASS") ? [] : [`Skills: ${critiqueText}`] };
 }
 
 // Critique 4
 async function critiqueProjects(state: typeof StateAnnotation.State, config?: RunnableConfig) {
-    await dispatchCustomEvent("progress", { msg: "[Critique Projects] Checking repository mappings..." }, config);
-    const evalResult = await llm.invoke([
-        { role: "system", content: "Review CV. Does it accurately portray proper software engineering projects? Say 'PASS' if good, otherwise point out gaps." },
-        { role: "user", content: state.workingExtendedCv }
-    ], config);
-    return { critiqueFeedback: evalResult.content === "PASS" ? [] : [`Projects: ${evalResult.content}`] };
+  await dispatchCustomEvent(
+    "progress",
+    { msg: "[Critique Projects] Checking repository mappings..." },
+    config
+  );
+  const evalResult = await llm.invoke(
+    [
+      {
+        role: "system",
+        content:
+          "Review CV. Does it accurately portray proper software engineering projects? Say 'PASS' if good, otherwise point out gaps.",
+      },
+      { role: "user", content: state.workingExtendedCv },
+    ],
+    config
+  );
+  return {
+    critiqueFeedback: evalResult.content === "PASS" ? [] : [`Projects: ${evalResult.content}`],
+  };
 }
 
 // Critique 5
 async function critiqueExperiences(state: typeof StateAnnotation.State, config?: RunnableConfig) {
-    await dispatchCustomEvent("progress", { msg: "[Critique Experiences] Asserting timeline continuity..." }, config);
-    const evalResult = await llm.invoke([
-        { role: "system", content: "Review timeline consistency in the CV experiences. Say 'PASS' if there are no magical overlapping full-time conflicts or impossibilities. Else explain." },
-        { role: "user", content: state.workingExtendedCv }
-    ], config);
-    return { critiqueFeedback: evalResult.content === "PASS" ? [] : [`Experiences: ${evalResult.content}`] };
+  await dispatchCustomEvent(
+    "progress",
+    { msg: "[Critique Experiences] Asserting timeline continuity..." },
+    config
+  );
+  const evalResult = await llm.invoke(
+    [
+      {
+        role: "system",
+        content:
+          "Review timeline consistency in the CV experiences. Say 'PASS' if there are no magical overlapping full-time conflicts or impossibilities. Else explain.",
+      },
+      { role: "user", content: state.workingExtendedCv },
+    ],
+    config
+  );
+  return {
+    critiqueFeedback: evalResult.content === "PASS" ? [] : [`Experiences: ${evalResult.content}`],
+  };
 }
 
 async function consolidateCV(state: typeof StateAnnotation.State, config?: RunnableConfig) {
-    await dispatchCustomEvent("progress", { msg: "Consolidating 5-Phase critiques..." }, config);
-    if (state.critiqueFeedback.length > 0) {
-        // Redraft
-        await dispatchCustomEvent("progress", { msg: `Found ${state.critiqueFeedback.length} critique issues. Repairing...` }, config);
-        const fixed = await llm.invoke([
-            { role: "system", content: `You must fix the CV given the following strict critiques:\n${state.critiqueFeedback.join("\n")}\n\nOutput only fixed markdown CV.` },
-            { role: "user", content: state.workingExtendedCv }
-        ], config);
-        
-        let fixedContent = typeof fixed.content === "string" ? fixed.content : state.workingExtendedCv;
-        
-        // Return fixed CV and clear critiques
-        return { workingExtendedCv: fixedContent, critiqueFeedback: [], messages: [{ role: "assistant", content: "I have updated the CV based on multiple critique phases." }] };
-    }
-    
-    return { messages: [{ role: "assistant", content: "I have finalized the CV iteration and it passes all 5 critique validation stages." }] };
+  await dispatchCustomEvent("progress", { msg: "Consolidating 5-Phase critiques..." }, config);
+  if (state.critiqueFeedback.length > 0) {
+    // Redraft
+    await dispatchCustomEvent(
+      "progress",
+      { msg: `Found ${state.critiqueFeedback.length} critique issues. Repairing...` },
+      config
+    );
+    const fixed = await llm.invoke(
+      [
+        {
+          role: "system",
+          content: `You must fix the CV given the following strict critiques:\n${state.critiqueFeedback.join("\n")}\n\nOutput only fixed markdown CV.`,
+        },
+        { role: "user", content: state.workingExtendedCv },
+      ],
+      config
+    );
+
+    let fixedContent = typeof fixed.content === "string" ? fixed.content : state.workingExtendedCv;
+
+    // Return fixed CV and clear critiques
+    return {
+      workingExtendedCv: fixedContent,
+      critiqueFeedback: [],
+      messages: [
+        { role: "assistant", content: "I have updated the CV based on multiple critique phases." },
+      ],
+    };
+  }
+
+  return {
+    messages: [
+      {
+        role: "assistant",
+        content:
+          "I have finalized the CV iteration and it passes all 5 critique validation stages.",
+      },
+    ],
+  };
 }
 
 const workflow = new StateGraph(StateAnnotation)
-    .addNode("Draft_CV", draftCV)
-    .addNode("Critique_Tone", critiqueTone)
-    .addNode("Critique_Truth", critiqueTruth)
-    .addNode("Critique_Skills", critiqueSkills)
-    .addNode("Critique_Projects", critiqueProjects)
-    .addNode("Critique_Experiences", critiqueExperiences)
-    .addNode("Consolidate_Feedback", consolidateCV)
-    
-    // Fork
-    .addEdge(START, "Draft_CV")
-    .addEdge("Draft_CV", "Critique_Tone")
-    .addEdge("Draft_CV", "Critique_Truth")
-    .addEdge("Draft_CV", "Critique_Skills")
-    .addEdge("Draft_CV", "Critique_Projects")
-    .addEdge("Draft_CV", "Critique_Experiences")
-    
-    // Join
-    .addEdge("Critique_Tone", "Consolidate_Feedback")
-    .addEdge("Critique_Truth", "Consolidate_Feedback")
-    .addEdge("Critique_Skills", "Consolidate_Feedback")
-    .addEdge("Critique_Projects", "Consolidate_Feedback")
-    .addEdge("Critique_Experiences", "Consolidate_Feedback")
-    
-    .addEdge("Consolidate_Feedback", END);
+  .addNode("Draft_CV", draftCV)
+  .addNode("Critique_Tone", critiqueTone)
+  .addNode("Critique_Truth", critiqueTruth)
+  .addNode("Critique_Skills", critiqueSkills)
+  .addNode("Critique_Projects", critiqueProjects)
+  .addNode("Critique_Experiences", critiqueExperiences)
+  .addNode("Consolidate_Feedback", consolidateCV)
+
+  // Fork
+  .addEdge(START, "Draft_CV")
+  .addEdge("Draft_CV", "Critique_Tone")
+  .addEdge("Draft_CV", "Critique_Truth")
+  .addEdge("Draft_CV", "Critique_Skills")
+  .addEdge("Draft_CV", "Critique_Projects")
+  .addEdge("Draft_CV", "Critique_Experiences")
+
+  // Join
+  .addEdge("Critique_Tone", "Consolidate_Feedback")
+  .addEdge("Critique_Truth", "Consolidate_Feedback")
+  .addEdge("Critique_Skills", "Consolidate_Feedback")
+  .addEdge("Critique_Projects", "Consolidate_Feedback")
+  .addEdge("Critique_Experiences", "Consolidate_Feedback")
+
+  .addEdge("Consolidate_Feedback", END);
 
 export const improverSubGraph = workflow.compile();

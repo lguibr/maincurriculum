@@ -14,7 +14,7 @@ export const CVImproverState = Annotation.Root({
   questions_for_user: Annotation<string[]>(),
   user_answers: Annotation<Record<string, string>>({
     reducer: (curr, update) => ({ ...curr, ...update }),
-    default: () => ({})
+    default: () => ({}),
   }),
   iterations: Annotation<number>(),
 });
@@ -27,7 +27,7 @@ async function matchGitHubProjects(state: CVImproverStateType, config?: Runnable
     model: "gemini-3-flash-preview",
     contents: `Review the current CV and the user's GitHub portfolio. Select up to 5 most impressive and relevant projects that should be highlighted or added to the CV to improve it.
 Current CV: ${state.current_cv}
-GitHub Portfolio: ${JSON.stringify((state.github_portfolio || []).map(p => ({ name: p.name, description: p.description, language: p.language })))}
+GitHub Portfolio: ${JSON.stringify((state.github_portfolio || []).map((p) => ({ name: p.name, description: p.description, language: p.language })))}
 Output ONLY JSON.`,
     config: {
       responseMimeType: "application/json",
@@ -39,7 +39,7 @@ Output ONLY JSON.`,
       },
     },
   });
-  
+
   let fullText = "";
   for await (const chunk of stream) {
     fullText += chunk.text;
@@ -55,7 +55,7 @@ async function fetchRepoContext(state: CVImproverStateType, config?: RunnableCon
   const repo_deep_dives: Record<string, string> = { ...(state.repo_deep_dives || {}) };
   for (const repoName of state.selected_projects || []) {
     if (!repo_deep_dives[repoName]) {
-      const repo = (state.github_portfolio || []).find(p => p.name === repoName);
+      const repo = (state.github_portfolio || []).find((p) => p.name === repoName);
       if (repo && repo.full_name) {
         try {
           if (onChunk) onChunk("Fetch_Repo_Context", `\nFetching context for ${repo.full_name}...`);
@@ -107,10 +107,10 @@ Output ONLY JSON.`,
         properties: {
           score: { type: Type.NUMBER },
           critique: { type: Type.STRING },
-          questions: { type: Type.ARRAY, items: { type: Type.STRING } }
-        }
-      }
-    }
+          questions: { type: Type.ARRAY, items: { type: Type.STRING } },
+        },
+      },
+    },
   });
 
   let fullText = "";
@@ -118,13 +118,13 @@ Output ONLY JSON.`,
     fullText += chunk.text;
     if (onChunk) onChunk("Evaluate_CV", chunk.text);
   }
-  
+
   const res = JSON.parse(fullText || "{}");
   return {
     score: res.score || 0,
     critique: res.critique || "",
     questions_for_user: res.questions || [],
-    iterations: (state.iterations || 0) + 1
+    iterations: (state.iterations || 0) + 1,
   };
 }
 
@@ -171,10 +171,10 @@ Output the complete rewritten CV in Markdown format. Output ONLY JSON.`,
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          rewritten_cv: { type: Type.STRING }
-        }
-      }
-    }
+          rewritten_cv: { type: Type.STRING },
+        },
+      },
+    },
   });
 
   let fullText = "";
@@ -182,7 +182,7 @@ Output the complete rewritten CV in Markdown format. Output ONLY JSON.`,
     fullText += chunk.text;
     if (onChunk) onChunk("Rewrite_CV", chunk.text);
   }
-  
+
   const res = JSON.parse(fullText || "{}");
   return { current_cv: res.rewritten_cv || state.current_cv, questions_for_user: [] };
 }
@@ -201,7 +201,7 @@ const workflow = new StateGraph(CVImproverState)
   .addEdge("Rewrite_CV", "Evaluate_CV");
 
 const checkpointer = new MemorySaver();
-export const cvImproverGraph = workflow.compile({ 
+export const cvImproverGraph = workflow.compile({
   checkpointer,
-  interruptBefore: ["Ask_User"]
+  interruptBefore: ["Ask_User"],
 });

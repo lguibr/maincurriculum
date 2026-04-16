@@ -3,8 +3,8 @@ import { Annotation } from "@langchain/langgraph";
 
 // Action payloads for the Persister node to execute
 export interface DbDirective {
-  targetTable: 'user_profiles' | 'cv_versions' | 'projects_raw_text' | 'project_embeddings';
-  action: 'insert' | 'update' | 'upsert';
+  targetTable: "user_profiles" | "cv_versions" | "projects_raw_text" | "project_embeddings";
+  action: "insert" | "update" | "upsert";
   data: any;
   whereClause?: any; // e.g. { id: 1 }
 }
@@ -16,23 +16,23 @@ export interface ProfileGraphState {
   userProfileId: number | null;
   workingExtendedCv: string;
   critiqueFeedback: string[];
-  
+
   // Repositories & Processing Tracking
-  repositories: any[]; 
-  ingestedProjects: number; 
-  
+  repositories: any[];
+  ingestedProjects: number;
+
   // Sub-Agent and Orchestration State
   nextAgent: string | null;
   pendingDbWrites: DbDirective[];
-  
+
   // Interview tracking
-  knowledgeGaps: string[]; 
-  messages: BaseMessage[]; 
+  knowledgeGaps: string[];
+  messages: BaseMessage[];
   finalSQLDemographics: string;
   missingCount: number;
   missingInfoList: string[];
   interviewHistory: { question: string; answer: string }[];
-  
+
   // General UI Display
   currentPhase: string;
   wizardCompleted: boolean;
@@ -40,23 +40,23 @@ export interface ProfileGraphState {
 
 export const StateAnnotation = Annotation.Root({
   githubUrl: Annotation<string>({
-    reducer: (a, b) => b !== undefined ? b : a,
+    reducer: (a, b) => (b !== undefined ? b : a),
     default: () => "",
   }),
   baseCv: Annotation<string>({
-    reducer: (a, b) => b !== undefined ? b : a,
+    reducer: (a, b) => (b !== undefined ? b : a),
     default: () => "",
   }),
   githubHandle: Annotation<string>({
-    reducer: (a, b) => b !== undefined ? b : a,
+    reducer: (a, b) => (b !== undefined ? b : a),
     default: () => "",
   }),
   userProfileId: Annotation<number | null>({
-    reducer: (a, b) => b !== null ? b : a,
+    reducer: (a, b) => (b !== null ? b : a),
     default: () => null,
   }),
   workingExtendedCv: Annotation<string>({
-    reducer: (a, b) => b !== undefined ? b : a,
+    reducer: (a, b) => (b !== undefined ? b : a),
     default: () => "",
   }),
   critiqueFeedback: Annotation<string[]>({
@@ -72,10 +72,10 @@ export const StateAnnotation = Annotation.Root({
     reducer: (a, b) => a + (b || 0),
     default: () => 0,
   }),
-  
+
   // --- New Sub-Agent Orchestration State ---
   nextAgent: Annotation<string | null>({
-    reducer: (a, b) => b !== undefined ? b : a,
+    reducer: (a, b) => (b !== undefined ? b : a),
     default: () => null,
   }),
   pendingDbWrites: Annotation<DbDirective[]>({
@@ -85,7 +85,7 @@ export const StateAnnotation = Annotation.Root({
     },
     default: () => [],
   }),
-  
+
   knowledgeGaps: Annotation<string[]>({
     reducer: (a, b) => b || a, // Simple override
     default: () => [],
@@ -99,7 +99,7 @@ export const StateAnnotation = Annotation.Root({
     default: () => "",
   }),
   missingCount: Annotation<number>({
-    reducer: (a, b) => b !== undefined ? b : a,
+    reducer: (a, b) => (b !== undefined ? b : a),
     default: () => 0,
   }),
   missingInfoList: Annotation<string[]>({
@@ -117,5 +117,5 @@ export const StateAnnotation = Annotation.Root({
   wizardCompleted: Annotation<boolean>({
     reducer: (a, b) => b || a,
     default: () => false,
-  })
+  }),
 });

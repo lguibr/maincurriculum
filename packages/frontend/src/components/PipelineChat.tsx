@@ -12,25 +12,23 @@ export interface PipelineNode {
 export const PIPELINE_NODES: PipelineNode[] = [
   { name: "IngestionAgent", stateKey: "ingestedProjects", label: "Repository Ingestion" },
   { name: "InterviewerAgent", stateKey: "finalSQLDemographics", label: "Profile Interview" },
-  { name: "Persister", stateKey: "wizardCompleted", label: "Database Commit" }
+  { name: "Persister", stateKey: "wizardCompleted", label: "Database Commit" },
 ];
 
 const PIPELINE_NODE_NAMES = new Set(PIPELINE_NODES.map((n) => n.name));
 
-export function getStreamingContent(
-  events: any[]
-): Record<string, string> {
+export function getStreamingContent(events: any[]): Record<string, string> {
   const content: Record<string, string> = {};
 
   for (const evt of events) {
     if (evt.event === "on_chat_model_stream") {
       let node = evt.metadata?.langgraph_node;
-      
+
       // Route internal deepagent nodes to the correct parent NodeCard
       if (evt.metadata?.checkpoint_ns?.includes("IngestionAgent")) {
-         node = "IngestionAgent";
+        node = "IngestionAgent";
       } else if (evt.metadata?.checkpoint_ns?.includes("InterviewerAgent")) {
-         node = "InterviewerAgent";
+        node = "InterviewerAgent";
       }
 
       if (node && PIPELINE_NODE_NAMES.has(node)) {
@@ -73,17 +71,21 @@ export function NodeCard({
   const [collapsed, setCollapsed] = useState(false);
 
   const displayContent =
-    status === "complete"
-      ? formatContent(completedContent)
-      : streamingContent ?? "";
+    status === "complete" ? formatContent(completedContent) : (streamingContent ?? "");
 
   const statusBadge = {
-    idle: { text: "Waiting", className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
+    idle: {
+      text: "Waiting",
+      className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+    },
     streaming: {
       text: "Running",
       className: "bg-blue-100 text-blue-700 animate-pulse dark:bg-blue-900 dark:text-blue-300",
     },
-    complete: { text: "Done", className: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" },
+    complete: {
+      text: "Done",
+      className: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+    },
   };
 
   const badge = statusBadge[status];
@@ -96,13 +98,15 @@ export function NodeCard({
       >
         <div className="flex items-center gap-3">
           <h3 className="font-semibold">{node.label}</h3>
-          <span
-            className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}
-          >
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}>
             {badge.text}
           </span>
         </div>
-        {collapsed ? <ChevronDown className="w-5 h-5 text-muted-foreground" /> : <ChevronUp className="w-5 h-5 text-muted-foreground" />}
+        {collapsed ? (
+          <ChevronDown className="w-5 h-5 text-muted-foreground" />
+        ) : (
+          <ChevronUp className="w-5 h-5 text-muted-foreground" />
+        )}
       </button>
 
       {!collapsed && displayContent && (
@@ -122,7 +126,7 @@ export function NodeCard({
 export function NodeCardList({
   nodes,
   events,
-  values
+  values,
 }: {
   nodes: typeof PIPELINE_NODES;
   events: any[];
@@ -165,15 +169,15 @@ export function PipelineProgress({
         const status = getNodeStatus(node, streamingContent, values);
         const colors = {
           idle: "bg-muted text-muted-foreground border-transparent",
-          streaming: "bg-primary text-primary-foreground animate-pulse shadow-[0_0_10px_rgba(var(--primary),0.5)] border-primary",
-          complete: "bg-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)] border-emerald-500",
+          streaming:
+            "bg-primary text-primary-foreground animate-pulse shadow-[0_0_10px_rgba(var(--primary),0.5)] border-primary",
+          complete:
+            "bg-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)] border-emerald-500",
         };
 
         return (
           <div key={node.name} className="flex items-center">
-            <div
-              className={`rounded-full px-3 py-1 text-xs font-medium border ${colors[status]}`}
-            >
+            <div className={`rounded-full px-3 py-1 text-xs font-medium border ${colors[status]}`}>
               {node.label}
             </div>
             {i < nodes.length - 1 && (

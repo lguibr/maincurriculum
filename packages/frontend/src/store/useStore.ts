@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 
 interface SSEMessage {
   type: string;
@@ -15,7 +15,7 @@ interface AppState {
   setBaseCv: (val: string) => void;
   cvViewMode: "raw" | "preview";
   setCvViewMode: (mode: "raw" | "preview") => void;
-  
+
   // Pipeline State
   isRunning: boolean;
   logs: string[];
@@ -37,11 +37,12 @@ interface AppState {
 let eventSource: EventSource | null = null;
 
 export const useStore = create<AppState>((set, get) => ({
-  githubUsername: '',
+  githubUsername: "",
   setGithubUsername: (val) => set({ githubUsername: val }),
-  baseCv: '<!-- \n  Paste your Markdown Curriculum here...\n  (Click anywhere in this box to edit!)\n-->\n\n',
+  baseCv:
+    "<!-- \n  Paste your Markdown Curriculum here...\n  (Click anywhere in this box to edit!)\n-->\n\n",
   setBaseCv: (val) => set({ baseCv: val }),
-  cvViewMode: 'raw',
+  cvViewMode: "raw",
   setCvViewMode: (mode) => set({ cvViewMode: mode }),
 
   isRunning: false,
@@ -59,7 +60,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   startAgent: async () => {
     const { githubUsername, baseCv } = get();
-    
+
     set({
       isRunning: true,
       logs: [],
@@ -69,7 +70,7 @@ export const useStore = create<AppState>((set, get) => ({
       currentPhase: "Parsing Github...",
       isWizardComplete: false,
       langgraphEvents: [],
-      langgraphValues: {}
+      langgraphValues: {},
     });
 
     try {
@@ -88,7 +89,12 @@ export const useStore = create<AppState>((set, get) => ({
 
         if (parsed.type === "langgraph_event") {
           if (parsed.payload) {
-             set((state) => ({ langgraphEvents: [...state.langgraphEvents, parsed.payload as Record<string, unknown>] }));
+            set((state) => ({
+              langgraphEvents: [
+                ...state.langgraphEvents,
+                parsed.payload as Record<string, unknown>,
+              ],
+            }));
           }
           return;
         }
@@ -98,48 +104,48 @@ export const useStore = create<AppState>((set, get) => ({
             let pgr = state.progress;
             let phase = state.currentPhase;
             const msg = parsed.message || "";
-            
-            // Embedding chunk X/Y
-            let chunkMatch = msg.match(/\[(.*?)\] Embedding chunk (\d+)\/(\d+)\.\.\./);
-            if (chunkMatch) {
-                pgr = (parseInt(chunkMatch[2]) / parseInt(chunkMatch[3])) * 100;
-                phase = `Embedding: ${chunkMatch[1]}`;
-            } else if (msg.includes("Using Gemini 3.1 Flash Lite")) {
-                phase = "Summarizing via Gemini 3.1 Flash Lite...";
-                pgr = 50;
-            } else if (msg.includes("Fetching GitHub handle")) {
-                phase = "Fetching Repositories...";
-                pgr = 10;
+
+            // Repo X/Y Processing
+            let repoMatch = msg.match(/\[Repo\s+(\d+)\/(\d+)\]\s+(.*)/);
+            if (repoMatch) {
+              pgr = (parseInt(repoMatch[1]) / parseInt(repoMatch[2])) * 100;
+              phase = repoMatch[3];
+            } else if (msg.includes("Found") && msg.includes("target repositories")) {
+              phase = "Preparing Repository Ingestion...";
+              pgr = 5;
+            } else if (msg.includes("Fetching GitHub repos")) {
+              phase = "Fetching Repositories...";
+              pgr = 2;
             } else if (msg.includes("Generating project vector embeddings")) {
-                phase = "Initializing Variables...";
-                pgr = 0;
+              phase = "Initializing Variables...";
+              pgr = 0;
             } else if (msg.includes("Database RAG Vectors loaded")) {
-                phase = "Context Ready";
-                pgr = 100;
+              phase = "Context Ready";
+              pgr = 100;
             }
-            
+
             return {
-               logs: [...state.logs, msg],
-               progress: pgr,
-               currentPhase: phase
+              logs: [...state.logs, msg],
+              progress: pgr,
+              currentPhase: phase,
             };
           });
         }
 
         if (parsed.type === "interrupt") {
           set((state) => ({
-             currentPhase: String(parsed.data?.phase || "Interview Phase"),
-             currentQuestion: parsed.data?.question as string | null,
-             logs: [...state.logs, "Agent paused for user input..."]
+            currentPhase: String(parsed.data?.phase || "Interview Phase"),
+            currentQuestion: parsed.data?.question as string | null,
+            logs: [...state.logs, "Agent paused for user input..."],
           }));
         }
 
         if (parsed.type === "complete") {
           set({
-             isRunning: false,
-             isWizardComplete: true,
-             currentPhase: "Onboarding Complete",
-             langgraphValues: { wizardCompleted: true }
+            isRunning: false,
+            isWizardComplete: true,
+            currentPhase: "Onboarding Complete",
+            langgraphValues: { wizardCompleted: true },
           });
           eventSource?.close();
         }
@@ -150,10 +156,9 @@ export const useStore = create<AppState>((set, get) => ({
         eventSource?.close();
         set({ isRunning: false });
       };
-
     } catch (e: unknown) {
-        console.error("Failed to start agent:", e);
-        set({ isRunning: false });
+      console.error("Failed to start agent:", e);
+      set({ isRunning: false });
     }
   },
 
@@ -164,5 +169,5 @@ export const useStore = create<AppState>((set, get) => ({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ answer }),
     });
-  }
+  },
 }));

@@ -1,6 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Activity } from 'lucide-react';
+import { Activity } from "lucide-react";
 
 interface AgentLogViewerProps {
   progress: { node: string; message: string }[];
@@ -11,7 +11,7 @@ export function AgentLogViewer({ progress, isRunning }: AgentLogViewerProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: "smooth" });
   }, [progress]);
 
   return (

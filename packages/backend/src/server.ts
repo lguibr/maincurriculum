@@ -26,11 +26,13 @@ app.get("/api/ingest/stream", (req, res) => {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
-    "Connection": "keep-alive",
+    Connection: "keep-alive",
   });
 
   // Send initial connected event
-  res.write(`data: ${JSON.stringify({ type: "connected", message: "SSE connected successfully" })}\n\n`);
+  res.write(
+    `data: ${JSON.stringify({ type: "connected", message: "SSE connected successfully" })}\n\n`
+  );
 
   activeSSEClient = res;
 
@@ -61,15 +63,18 @@ app.post("/api/ingest/start", async (req, res) => {
 
   try {
     let preloadedMessages: any[] = [];
-    const latestProfileReq = await pool.query("SELECT demographics_json FROM user_profiles WHERE github_handle = $1 ORDER BY id DESC LIMIT 1", [githubHandle]);
+    const latestProfileReq = await pool.query(
+      "SELECT demographics_json FROM user_profiles WHERE github_handle = $1 ORDER BY id DESC LIMIT 1",
+      [githubHandle]
+    );
 
     if (latestProfileReq.rows.length > 0) {
       const dem = latestProfileReq.rows[0].demographics_json;
-      for (const key of ['skills', 'education', 'experience']) {
+      for (const key of ["skills", "education", "experience"]) {
         if (Array.isArray(dem[key])) {
           dem[key].forEach((qa: any) => {
-            preloadedMessages.push({ role: 'assistant', content: `[${key}] ${qa.question}` });
-            preloadedMessages.push({ role: 'user', content: qa.answer });
+            preloadedMessages.push({ role: "assistant", content: `[${key}] ${qa.question}` });
+            preloadedMessages.push({ role: "user", content: qa.answer });
           });
         }
       }
@@ -83,36 +88,48 @@ app.post("/api/ingest/start", async (req, res) => {
 
       const evtName = event.event;
       if (evtName === "on_custom_event") {
-        activeSSEClient.write(`data: ${JSON.stringify({ type: "log", message: (event.data as any).msg })}\n\n`);
+        activeSSEClient.write(
+          `data: ${JSON.stringify({ type: "log", message: (event.data as any).msg })}\n\n`
+        );
 
         if (event.name === "interrupt") {
-          activeSSEClient.write(`data: ${JSON.stringify({ type: "interrupt", data: event.data })}\n\n`);
+          activeSSEClient.write(
+            `data: ${JSON.stringify({ type: "interrupt", data: event.data })}\n\n`
+          );
         }
       } else if (evtName === "on_chat_model_stream") {
-        activeSSEClient.write(`data: ${JSON.stringify({ type: "token", message: event.data.chunk?.text || "" })}\n\n`);
+        activeSSEClient.write(
+          `data: ${JSON.stringify({ type: "token", message: event.data.chunk?.text || "" })}\n\n`
+        );
       }
-      
+
       // Emit the raw stream event for @langchain/react NodeCard UI compatibility
-      activeSSEClient.write(`data: ${JSON.stringify({ type: "langgraph_event", payload: event })}\n\n`);
+      activeSSEClient.write(
+        `data: ${JSON.stringify({ type: "langgraph_event", payload: event })}\n\n`
+      );
     }
 
     // Check if graph formally ended or suspended (interrupted)
     const state = await appGraph.getState({ configurable: { thread_id: SINGLETON_THREAD_ID } });
     if (state.tasks.some((t: any) => t.interrupts.length > 0)) {
-      const payload = state.tasks[0]?.interrupts[0]?.value as { phase?: string, question?: string };
+      const payload = state.tasks[0]?.interrupts[0]?.value as { phase?: string; question?: string };
       if (activeSSEClient && payload) {
         // Since it's an object, just send it directly as data
         activeSSEClient.write(`data: ${JSON.stringify({ type: "interrupt", data: payload })}\n\n`);
       }
     } else {
       if (activeSSEClient) {
-        activeSSEClient.write(`data: ${JSON.stringify({ type: "complete", data: { completed: true } })}\n\n`);
+        activeSSEClient.write(
+          `data: ${JSON.stringify({ type: "complete", data: { completed: true } })}\n\n`
+        );
       }
     }
   } catch (e: any) {
     console.error("Execution error:", e.message);
     if (activeSSEClient) {
-      activeSSEClient.write(`data: ${JSON.stringify({ type: "log", message: "ERROR: " + e.message })}\n\n`);
+      activeSSEClient.write(
+        `data: ${JSON.stringify({ type: "log", message: "ERROR: " + e.message })}\n\n`
+      );
     }
   }
 });
@@ -123,25 +140,30 @@ app.post("/api/ingest/answer", async (req, res) => {
 
   try {
     // Resume the graph by passing an explicit Command object resolving the interrupt
-    for await (const event of await appGraph.streamEvents(
-      new Command({ resume: answer }),
-      { version: "v2", recursionLimit: 150, configurable: { thread_id: SINGLETON_THREAD_ID } }
-    )) {
+    for await (const event of await appGraph.streamEvents(new Command({ resume: answer }), {
+      version: "v2",
+      recursionLimit: 150,
+      configurable: { thread_id: SINGLETON_THREAD_ID },
+    })) {
       if (!activeSSEClient) continue;
       if (event.event === "on_custom_event") {
-        activeSSEClient.write(`data: ${JSON.stringify({ type: "log", message: (event.data as any).msg })}\n\n`);
+        activeSSEClient.write(
+          `data: ${JSON.stringify({ type: "log", message: (event.data as any).msg })}\n\n`
+        );
       }
     }
 
     const state = await appGraph.getState({ configurable: { thread_id: SINGLETON_THREAD_ID } });
     if (state.tasks.some((t: any) => t.interrupts.length > 0)) {
-      const payload = state.tasks[0]?.interrupts[0]?.value as { phase?: string, question?: string };
+      const payload = state.tasks[0]?.interrupts[0]?.value as { phase?: string; question?: string };
       if (activeSSEClient && payload) {
         activeSSEClient.write(`data: ${JSON.stringify({ type: "interrupt", data: payload })}\n\n`);
       }
     } else {
       if (activeSSEClient) {
-        activeSSEClient.write(`data: ${JSON.stringify({ type: "complete", data: { completed: true } })}\n\n`);
+        activeSSEClient.write(
+          `data: ${JSON.stringify({ type: "complete", data: { completed: true } })}\n\n`
+        );
       }
     }
   } catch (e: any) {
@@ -154,36 +176,48 @@ app.post("/api/improver/chat", async (req, res) => {
   res.status(200).json({ status: "Chat received" });
 
   try {
-    let payload: any = { 
-      currentPhase: "Improver" 
+    let payload: any = {
+      currentPhase: "Improver",
     };
     if (message) {
-      payload.messages = [{ role: 'user', content: message }];
+      payload.messages = [{ role: "user", content: message }];
     }
     if (extendedCv) {
       payload.workingExtendedCv = extendedCv;
     }
 
-    for await (const event of await appGraph.streamEvents(
-      payload,
-      { version: "v2", recursionLimit: 150, configurable: { thread_id: SINGLETON_THREAD_ID } }
-    )) {
+    for await (const event of await appGraph.streamEvents(payload, {
+      version: "v2",
+      recursionLimit: 150,
+      configurable: { thread_id: SINGLETON_THREAD_ID },
+    })) {
       if (!activeSSEClient) continue;
-      
+
       const evtName = event.event;
       if (evtName === "on_custom_event") {
-         activeSSEClient.write(`data: ${JSON.stringify({ type: "log", message: (event.data as any).msg })}\n\n`);
+        activeSSEClient.write(
+          `data: ${JSON.stringify({ type: "log", message: (event.data as any).msg })}\n\n`
+        );
       } else if (evtName === "on_chat_model_stream") {
-         activeSSEClient.write(`data: ${JSON.stringify({ type: "token", message: event.data.chunk?.text || "" })}\n\n`);
+        activeSSEClient.write(
+          `data: ${JSON.stringify({ type: "token", message: event.data.chunk?.text || "" })}\n\n`
+        );
       }
-      activeSSEClient.write(`data: ${JSON.stringify({ type: "langgraph_event", payload: event })}\n\n`);
+      activeSSEClient.write(
+        `data: ${JSON.stringify({ type: "langgraph_event", payload: event })}\n\n`
+      );
     }
 
     if (activeSSEClient) {
-        activeSSEClient.write(`data: ${JSON.stringify({ type: "complete", data: { completed: true } })}\n\n`);
+      activeSSEClient.write(
+        `data: ${JSON.stringify({ type: "complete", data: { completed: true } })}\n\n`
+      );
     }
-  } catch(e: any) {
-    if (activeSSEClient) activeSSEClient.write(`data: ${JSON.stringify({ type: "log", message: "ERROR: " + e.message })}\n\n`);
+  } catch (e: any) {
+    if (activeSSEClient)
+      activeSSEClient.write(
+        `data: ${JSON.stringify({ type: "log", message: "ERROR: " + e.message })}\n\n`
+      );
   }
 });
 
@@ -213,7 +247,13 @@ app.put("/api/profile/:id", async (req, res) => {
     const { demographics_json, base_cv } = req.body;
     await pool.query(
       "UPDATE user_profiles SET demographics_json = $1::jsonb, base_cv = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3",
-      [typeof demographics_json === 'string' ? demographics_json : JSON.stringify(demographics_json), base_cv, req.params.id]
+      [
+        typeof demographics_json === "string"
+          ? demographics_json
+          : JSON.stringify(demographics_json),
+        base_cv,
+        req.params.id,
+      ]
     );
     res.json({ success: true });
   } catch (e: any) {
@@ -237,25 +277,30 @@ app.put("/api/profile/:id/extended", async (req, res) => {
 app.post("/api/tailor", async (req, res) => {
   try {
     const { jobDescription, profileId, employerQuestions } = req.body;
-    if (!profileId) return res.status(404).json({error: "Profile missing"});
-        
+    if (!profileId) return res.status(404).json({ error: "Profile missing" });
+
     const profileRes = await pool.query("SELECT * FROM user_profiles WHERE id = $1", [profileId]);
     const profile = profileRes.rows[0];
-    if (!profile) return res.status(404).json({error: "Profile missing"});
-        
+    if (!profile) return res.status(404).json({ error: "Profile missing" });
+
     const embedder = await EmbedderPipeline.getInstance();
-    const embedRes = await embedder(jobDescription, { pooling: 'mean', normalize: true });
+    const embedRes = await embedder(jobDescription, { pooling: "mean", normalize: true });
     const vector = `[${Array.from(embedRes.data).join(",")}]`;
-        
-    const similaritySearch = await pool.query(`
+
+    const similaritySearch = await pool.query(
+      `
         SELECT p.repo_name, e.chunk_text, 1 - (e.embedding <=> $1) as similarity
         FROM project_embeddings e
         JOIN projects_raw_text p ON p.id = e.project_id
         WHERE p.user_profile_id = $2
         ORDER BY e.embedding <=> $1 LIMIT 5
-    `, [vector, profileId]);
-        
-    let context = similaritySearch.rows.map((r: any) => `Repo: ${r.repo_name}\n${r.chunk_text}`).join("\n\n");
+    `,
+      [vector, profileId]
+    );
+
+    let context = similaritySearch.rows
+      .map((r: any) => `Repo: ${r.repo_name}\n${r.chunk_text}`)
+      .join("\n\n");
     const prompt = `You are an expert technical recruiter and resume writer. 
 Generate a comprehensive application packet for the candidate trying to get the following job.
 
@@ -284,38 +329,42 @@ You MUST output ONLY a valid stringified JSON object matching this exact structu
 Return ONLY valid JSON without backticks or markdown wrappers.`;
 
     const generation = await ai.models.generateContent({
-         model: "gemini-3-flash-preview",
-         contents: prompt
+      model: "gemini-3-flash-preview",
+      contents: prompt,
     });
-        
-    const rawOutput = generation.text?.replace(/```json/gi, '').replace(/```/g, '').trim() || "{}";
+
+    const rawOutput =
+      generation.text
+        ?.replace(/```json/gi, "")
+        .replace(/```/g, "")
+        .trim() || "{}";
     let parsed = { tailoredCv: "", coverLetter: "", employerAnswers: "" };
     try {
-       parsed = JSON.parse(rawOutput);
-    } catch(err) {
-       console.error("JSON parse failure on Tailor response.");
+      parsed = JSON.parse(rawOutput);
+    } catch (err) {
+      console.error("JSON parse failure on Tailor response.");
     }
-        
+
     // Save versions to Database
     if (parsed.tailoredCv) {
-        await pool.query(
-            "INSERT INTO cv_versions (user_profile_id, version_type, job_description, raw_markdown) VALUES ($1, $2, $3, $4)",
-            [profileId, 'tailored', jobDescription, parsed.tailoredCv]
-        );
+      await pool.query(
+        "INSERT INTO cv_versions (user_profile_id, version_type, job_description, raw_markdown) VALUES ($1, $2, $3, $4)",
+        [profileId, "tailored", jobDescription, parsed.tailoredCv]
+      );
     }
     if (parsed.coverLetter) {
-        await pool.query(
-            "INSERT INTO cv_versions (user_profile_id, version_type, job_description, raw_markdown) VALUES ($1, $2, $3, $4)",
-            [profileId, 'cover_letter', jobDescription, parsed.coverLetter]
-        );
+      await pool.query(
+        "INSERT INTO cv_versions (user_profile_id, version_type, job_description, raw_markdown) VALUES ($1, $2, $3, $4)",
+        [profileId, "cover_letter", jobDescription, parsed.coverLetter]
+      );
     }
     if (parsed.employerAnswers) {
-        await pool.query(
-            "INSERT INTO cv_versions (user_profile_id, version_type, job_description, raw_markdown) VALUES ($1, $2, $3, $4)",
-            [profileId, 'job_qa', jobDescription, parsed.employerAnswers]
-        );
+      await pool.query(
+        "INSERT INTO cv_versions (user_profile_id, version_type, job_description, raw_markdown) VALUES ($1, $2, $3, $4)",
+        [profileId, "job_qa", jobDescription, parsed.employerAnswers]
+      );
     }
-        
+
     res.json(parsed);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -325,20 +374,25 @@ Return ONLY valid JSON without backticks or markdown wrappers.`;
 app.post("/api/improve", async (req, res) => {
   try {
     const { profileId, instruction, currentCv } = req.body;
-    if (!profileId) return res.status(404).json({error: "Profile missing"});
+    if (!profileId) return res.status(404).json({ error: "Profile missing" });
     const profileRes = await pool.query("SELECT * FROM user_profiles WHERE id = $1", [profileId]);
     const profile = profileRes.rows[0];
     if (!profile) return res.status(404).json({ error: "Profile missing" });
 
-    const summarySearch = await pool.query(`
+    const summarySearch = await pool.query(
+      `
             SELECT p.repo_name, e.chunk_text
             FROM project_embeddings e
             JOIN projects_raw_text p ON p.id = e.project_id
             WHERE p.user_profile_id = $1
             ORDER BY RANDOM() LIMIT 8
-        `, [profileId]);
+        `,
+      [profileId]
+    );
 
-    let context = summarySearch.rows.map((r: any) => `Repo: ${r.repo_name}\n${r.chunk_text}`).join("\n\n");
+    let context = summarySearch.rows
+      .map((r: any) => `Repo: ${r.repo_name}\n${r.chunk_text}`)
+      .join("\n\n");
     const prompt = `You are a strict, top-tier technical CV reviewer. 
 The candidate is trying to improve their Base CV. They have an interview profile and some raw architectural data from their projects.
 
@@ -351,7 +405,7 @@ ${currentCv || profile.extended_cv || profile.base_cv}
 Sample RAG Architecture Contexts from their internal monorepos:
 ${context}
 
-${instruction ? `\n# STRICT OPTIONAL INSTRUCTION FROM USER:\n${instruction}\nYOU MUST ADHERE TO THIS TARGET DIRECTIVE.` : ''}
+${instruction ? `\n# STRICT OPTIONAL INSTRUCTION FROM USER:\n${instruction}\nYOU MUST ADHERE TO THIS TARGET DIRECTIVE.` : ""}
 
 Output ONLY the raw markdown of the rewritten, elite-tier CV. 
 Focus on:
@@ -361,16 +415,16 @@ Focus on:
 
     const generation = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: prompt
+      contents: prompt,
     });
 
     const rawMarkdown = generation.text?.trim() || "";
-        
+
     await pool.query(
-         "INSERT INTO cv_versions (user_profile_id, version_type, raw_markdown) VALUES ($1, $2, $3)",
-         [profileId, 'improved_base', rawMarkdown]
+      "INSERT INTO cv_versions (user_profile_id, version_type, raw_markdown) VALUES ($1, $2, $3)",
+      [profileId, "improved_base", rawMarkdown]
     );
-        
+
     res.json({ improvedCv: rawMarkdown });
   } catch (e: any) {
     res.status(500).json({ error: e.message });

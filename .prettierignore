@@ -1,0 +1,10 @@
+node_modules
+dist
+.env*
+*-env.d.ts
+packages/frontend/dist
+packages/backend/dist
+packages/backend/temp_repos
+temp_repos
+coverage
+.vscode

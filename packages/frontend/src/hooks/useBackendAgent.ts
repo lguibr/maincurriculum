@@ -22,26 +22,26 @@ export function useBackendAgent(endpoint: string) {
 
     eventSource.onmessage = (event) => {
       const parsed = JSON.parse(event.data) as SSEMessage;
-      
+
       if (parsed.type === "ping") return;
 
       if (parsed.type === "log") {
-        setLogs(prev => [...prev, parsed.message!]);
+        setLogs((prev) => [...prev, parsed.message!]);
       }
-      
+
       if (parsed.type === "node_start") {
-        setActiveNodes(prev => [...prev, parsed.data.node]);
+        setActiveNodes((prev) => [...prev, parsed.data.node]);
         setProgress(parsed.data.progress || 0);
       }
-      
+
       if (parsed.type === "node_end") {
-        setActiveNodes(prev => prev.filter(n => n !== parsed.data.node));
+        setActiveNodes((prev) => prev.filter((n) => n !== parsed.data.node));
       }
 
       if (parsed.type === "interrupt") {
         setCurrentPhase(parsed.data.phase || "Interview Phase");
         setCurrentQuestion(parsed.data.question);
-        setLogs(prev => [...prev, "Agent paused for user input..."]);
+        setLogs((prev) => [...prev, "Agent paused for user input..."]);
       }
 
       if (parsed.type === "complete") {
@@ -68,7 +68,7 @@ export function useBackendAgent(endpoint: string) {
     setLogs([]);
     setCurrentQuestion(null);
     setProgress(0);
-    
+
     // Post to trigger execution backend, which then broadcasts to SSE
     await fetch("/api/ingest/start", {
       method: "POST",
@@ -95,6 +95,6 @@ export function useBackendAgent(endpoint: string) {
     currentQuestion,
     isWizardComplete,
     startAgent,
-    submitAnswer
+    submitAnswer,
   };
 }

@@ -1,4 +1,10 @@
-export function buildOntologyPrompt({ cvText, repoContext }: { cvText: string; repoContext: string }) {
+export function buildOntologyPrompt({
+  cvText,
+  repoContext,
+}: {
+  cvText: string;
+  repoContext: string;
+}) {
   return `You are a strict data structurer converting a candidate's history into a linked Relational Graph.
 Read their Base CV and ingested Repositories and map out their foundational graph.
 
@@ -11,7 +17,17 @@ Base CV: ${cvText}
 Repos: ${repoContext}`;
 }
 
-export function analyzeSkillsPrompt({ cvText, repoContext, ontology, history }: { cvText: string; repoContext: string; ontology: any; history: string }) {
+export function analyzeSkillsPrompt({
+  cvText,
+  repoContext,
+  ontology,
+  history,
+}: {
+  cvText: string;
+  repoContext: string;
+  ontology: any;
+  history: string;
+}) {
   return `You are collaboratively helping a candidate complete their Skills profile based on their Ontological Knowledge Graph.
 Base CV: ${cvText}
 Repos: ${repoContext}
@@ -26,7 +42,15 @@ Your goal: Help gather more details to build a complete resume. DO NOT interroga
 Do not inquire too much. If they have already answered a question or if the graph has decent detail, output an empty array for knowledgeGaps.`;
 }
 
-export function analyzeEducationPrompt({ cvText, ontology, history }: { cvText: string; ontology: any; history: string }) {
+export function analyzeEducationPrompt({
+  cvText,
+  ontology,
+  history,
+}: {
+  cvText: string;
+  ontology: any;
+  history: string;
+}) {
   return `You are collaboratively helping a candidate complete their Education details based on their Knowledge Graph.
 Base CV: ${cvText}
 
@@ -40,7 +64,17 @@ Your goal: Help gather more details about their educational background. DO NOT i
 Do not inquire too much. If they have already answered a question or if the graph has decent detail, output an empty array for knowledgeGaps.`;
 }
 
-export function analyzeExperiencePrompt({ cvText, repoContext, ontology, history }: { cvText: string; repoContext: string; ontology: any; history: string }) {
+export function analyzeExperiencePrompt({
+  cvText,
+  repoContext,
+  ontology,
+  history,
+}: {
+  cvText: string;
+  repoContext: string;
+  ontology: any;
+  history: string;
+}) {
   return `You are collaboratively helping a candidate complete their Work Experience and Projects timeline based on their Knowledge Graph.
 Base CV: ${cvText}
 Repos: ${repoContext}
@@ -55,7 +89,15 @@ Your goal: Help gather more context about their work history. DO NOT interrogate
 Do not inquire too much. If they have already answered a question, or if there's sufficient detail, output an empty array for knowledgeGaps.`;
 }
 
-export function compileExtendedCVPrompt({ cvText, repoContext, demographics }: { cvText: string; repoContext: string; demographics: any }) {
+export function compileExtendedCVPrompt({
+  cvText,
+  repoContext,
+  demographics,
+}: {
+  cvText: string;
+  repoContext: string;
+  demographics: any;
+}) {
   return `You are an elite Staff-Level Engineer and Master CV Architect.
 Your task is to compile a "Master Extended CV". This is an absolutely enormous, comprehensive Markdown document that natively embodies every single piece of extracted knowledge we have about this candidate.
 
@@ -79,13 +121,20 @@ export const INTERVIEWER_PROMPTS = {
   completenessSystem: `You are an elite Staff-Level Technical Profiler.
 Review the provided candidate Base CV and any repository context available.
 Identify if the profile is sufficiently detailed in these structural areas: 'technical skills', 'education detail', 'work timelines'.
+
+CRITICAL INSTRUCTION: You MUST strictly enforce that the user has explicitly declared:
+1. "Target Position" (What exact job titles or roles are they looking for?)
+2. "Favorite Technologies" (What specific frameworks or languages do they love the most?)
+
+If EITHER of these two are missing or vague, you MUST add them to the missing areas array.
 If the candidate's CV is extremely sparse (e.g. just lists a job with no detail), flag the area as missing.
-If they have a decently populated CV (even if basic), leave the missing areas array empty.`,
+If they have a decently populated CV (even if basic) and BOTH target position and favorite tech are clear, leave the missing areas array empty.`,
   interviewerSystem: `You are collaboratively helping a candidate complete their profile.
 Review their history, their CV, and the specific missing area flagged.
 Draft a polite, concise, single question to ask the candidate to elaborate on this missing area.
-DO NOT interrogate them. Keep it conversational.`,
+DO NOT interrogate them. Keep it conversational.
+If the missing area is 'Target Position' or 'Favorite Technologies', ask them directly about it!`,
   cvImproverSystem: `You are an elite Resume Architect.
 Using the candidate's existing Master CV, and their recent Q&A interaction, output a newly improved markdown Master CV that natively weaves in the information they just shared.
-Do not output anything except the pure markdown of the updated CV.`
+Do not output anything except the pure markdown of the updated CV.`,
 };

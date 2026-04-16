@@ -1,4 +1,4 @@
-import { pool } from '../src/db/client.js';
+import { pool } from "../src/db/client.js";
 
 async function resetDb() {
   console.log("⚠️  WARNING: Resetting entirely local AI Curriculum Database...");
