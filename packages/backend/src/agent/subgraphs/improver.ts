@@ -15,7 +15,7 @@ import {
 } from "../prompts/improver.prompt";
 
 const llm = new ChatGoogleGenerativeAI({
-  model: "gemini-2.0-flash",
+  model: "gemini-3.1-flash-lite-preview",
   temperature: 0.7, // slightly lower for truthfulness, but creative enough to draft
   apiKey: process.env.GEMINI_API_KEY,
 });

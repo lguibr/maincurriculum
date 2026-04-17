@@ -20,14 +20,12 @@ export class EmbedderPipeline {
   static task = "feature-extraction";
   static model = "Xenova/all-MiniLM-L6-v2";
   static instancePromise: Promise<any> | null = null;
-  static instance: any = null;
 
   static async getInstance() {
     if (!this.instancePromise) {
       this.instancePromise = pipeline(this.task as any, this.model, { quantized: true });
-      this.instance = await this.instancePromise;
     }
-    return this.instance;
+    return this.instancePromise;
   }
 }
 
@@ -110,38 +108,25 @@ const processRepoTool = tool(
       return `[]`; // Return empty directives if fail
     }
 
-    await dispatchCustomEvent("progress", { msg: `${tag}Summarizing flat source over mega-context...` }, config);
-    const llm = new ChatGoogleGenerativeAI({
-      model: "gemini-3-flash",
-      temperature: 0.1,
-      apiKey: process.env.GEMINI_API_KEY,
-    });
-    // Run summarization over the raw flattened repo
-    const summaryResponse = await llm.invoke([
-      { role: "system", content: "You are a tech analyst. Summarize the logic, architecture, and tech stack from this repository dump concisely." },
-      { role: "user", content: textContent.slice(0, 1000000) } // Provide up to 1M chars
-    ]);
-    const summary = summaryResponse.content.toString();
-
     await dispatchCustomEvent(
       "progress",
       { msg: `${tag}Chunking and embedding architecture locally...` },
       config
     );
     const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 4000, chunkOverlap: 200 });
-    // To ensure it doesn't run forever on giant repos, we embed up to 200 chunks (800k chars)
+    // Keep embeddings up to 800k chars for practical reasons
     const docs = await splitter.createDocuments([textContent.slice(0, 800000)]);
     const embedder = await EmbedderPipeline.getInstance();
 
     const BATCH_SIZE = 16;
     const dbWrites: DbDirective[] = [];
-    
-    // Store the repomix dump directly in DB
-    dbWrites.push({
-      targetTable: "projects_raw_text",
-      action: "upsert",
-      data: { repo_name: repoName, raw_text: textContent, file_count: 1 } // Treat as 1 flattened file
-    });
+    const contextChunks: { text: string; score: number }[] = [];
+
+    // Embed a query for summarization context
+    const queryStr = "architecture tech stack logical structure main dependencies";
+    const queryEmbedResp = await embedder([queryStr], { pooling: "mean", normalize: true });
+    // Assuming normalized embeddings
+    const queryEmbedding = queryEmbedResp.tolist()[0];
 
     for (let i = 0; i < docs.length; i += BATCH_SIZE) {
       const batchDocs = docs.slice(i, i + BATCH_SIZE);
@@ -150,20 +135,50 @@ const processRepoTool = tool(
         const response = await embedder(batchTexts, { pooling: "mean", normalize: true });
         const embeddingsList = response.tolist();
         for (let j = 0; j < embeddingsList.length; j++) {
+          const emb = embeddingsList[j];
+          let score = 0;
+          for (let k = 0; k < emb.length; k++) score += queryEmbedding[k] * emb[k];
+          contextChunks.push({ text: batchTexts[j], score });
+
           dbWrites.push({
             targetTable: "project_embeddings",
             action: "insert",
             data: {
               chunk_index: i + j,
               chunk_text: batchTexts[j],
-              embedding: `[${embeddingsList[j].join(",")}]`,
+              embedding: `[${emb.join(",")}]`,
               _repoNameRef: repoName,
             },
           });
         }
       } catch { }
     }
-    
+
+    await dispatchCustomEvent("progress", { msg: `${tag}Summarizing flat source over vector-retrieved context...` }, config);
+    // Sort descending by score, take top chunks
+    contextChunks.sort((a, b) => b.score - a.score);
+    const topChunks = contextChunks.slice(0, 4).map(c => c.text).join("\n\n---\n\n");
+
+    const llm = new ChatGoogleGenerativeAI({
+      model: "gemini-3.1-flash-lite-preview",
+      temperature: 0.1,
+      apiKey: process.env.GEMINI_API_KEY,
+    });
+
+    // Run summarization over the top related architecture/logic chunks instead of full repo
+    const summaryResponse = await llm.invoke([
+      { role: "system", content: "You are a tech analyst. Summarize the logic, architecture, and tech stack from this repository excerpt concisely." },
+      { role: "user", content: "Top relevant snippets:\n" + topChunks }
+    ]);
+    const summary = summaryResponse.content.toString();
+
+    // Store the repomix dump AND summary directly in DB
+    dbWrites.push({
+      targetTable: "projects_raw_text",
+      action: "upsert",
+      data: { repo_name: repoName, raw_text: `SUMMARY:\n${summary}\n\nRAW TEXT:\n${textContent}`, file_count: 1 } // Treat as 1 flattened file
+    });
+
     await dispatchCustomEvent("progress", { msg: `${tag}Repo ingestion complete.` }, config);
     return JSON.stringify(dbWrites);
   },
