@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import ReactMarkdown from "react-markdown";
 import { useStore } from "../store/useStore";
-import { NodeCardList, PipelineProgress, PIPELINE_NODES } from "../components/PipelineChat";
+import { TodoList, SubagentStreaming, PIPELINE_NODES } from "../components/PipelineChat";
 
 export default function Onboarding() {
   const store = useStore();
@@ -40,26 +40,11 @@ export default function Onboarding() {
     }
   }, [store.currentQuestion]);
 
-  const phases = [
-    { name: "Data Extraction", match: "Parsing" },
-    { name: "Skills Audit", match: "Skills" },
-    { name: "Education Validation", match: "Education" },
-    { name: "Experience Timeline", match: "Experience" },
-  ];
-
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/30 h-screen overflow-hidden text-sm">
       <header className="shrink-0 flex items-center justify-between p-4 bg-muted/20 border-b border-border/40 backdrop-blur-md">
         <div className="flex items-center gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary border border-primary/30 shadow-[0_0_20px_rgba(var(--primary),0.2)]">
-            <RefreshCw className="w-5 h-5 animate-[spin_5s_linear_infinite]" />
-          </div>
-          <h1 className="text-xl font-bold tracking-tight">
-            MainCurriculum{" "}
-            <Badge variant="secondary" className="ml-2 font-normal">
-              Command Center 2.0
-            </Badge>
-          </h1>
+          <img src="/logo.png" alt="Main Curriculum Logo" className="h-10 w-auto object-contain" />
         </div>
         {store.isWizardComplete && (
           <Link
@@ -132,76 +117,33 @@ export default function Onboarding() {
             </div>
           </div>
 
-          {/* Right Column: Dynamic Wizard Stepper */}
+          {/* Right Column: Dynamic Subagent UI */}
           <div className="lg:w-1/2 w-full flex flex-col bg-card border border-border/50 rounded-2xl overflow-hidden shadow-xl h-full min-h-0 relative">
-            {/* Progress Stepper Header */}
+            {/* Top Level Todo Tracker */}
             <div className="p-6 bg-muted/30 shrink-0 border-b border-border/40">
               <h2 className="text-xl font-bold mb-6 flex items-center">
-                <Activity className="w-6 h-6 mr-3 text-primary" /> Agentic Onboarding
+                <Activity className="w-6 h-6 mr-3 text-primary" /> Graph Execution Pipeline
               </h2>
-              <div className="flex flex-col gap-4">
-                {phases.map((step, i) => {
-                  const isPassed =
-                    phases.findIndex((p) => store.currentPhase.includes(p.match)) > i;
-                  const isActive = store.currentPhase.includes(step.match);
-                  const colorState =
-                    isPassed || store.isWizardComplete
-                      ? "text-emerald-500"
-                      : isActive
-                        ? "text-primary"
-                        : "text-muted-foreground";
-                  const circleState =
-                    isPassed || store.isWizardComplete
-                      ? "bg-emerald-500/20 border-emerald-500"
-                      : isActive
-                        ? "bg-primary/20 border-primary shadow-[0_0_15px_rgba(var(--primary),0.5)]"
-                        : "bg-muted border-border/50";
-
-                  return (
-                    <div
-                      key={i}
-                      className={`flex items-center text-sm font-semibold transition-all ${colorState}`}
-                    >
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 border-2 ${circleState}`}
-                      >
-                        {isPassed || store.isWizardComplete ? (
-                          <CheckCircle className="w-4 h-4" />
-                        ) : (
-                          i + 1
-                        )}
-                      </div>
-                      {step.name}
-                      {isActive && <Loader2 className="w-4 h-4 ml-auto animate-spin" />}
-                    </div>
-                  );
-                })}
-              </div>
+              <TodoList
+                nodes={PIPELINE_NODES}
+                subagents={store.subagents}
+                values={store.langgraphValues}
+              />
             </div>
 
-            {/* Graph Interaction Box */}
-            <div className="flex-1 p-8 flex flex-col justify-center min-h-0 bg-background/50">
-              {!store.isRunning && !store.currentQuestion ? (
-                <div className="text-center text-muted-foreground">
+            {/* Subagent Streaming Cards */}
+            <div className="flex-1 p-6 flex flex-col justify-start min-h-0 bg-background/50 overflow-hidden">
+              {!store.isRunning && !store.currentQuestion && Object.keys(store.subagents).length === 0 ? (
+                <div className="flex flex-col h-full items-center justify-center text-muted-foreground p-8">
                   <AlertCircle className="w-16 h-16 mx-auto mb-6 opacity-20" />
                   <p className="text-lg">Graph Offline</p>
-                  <p className="text-sm opacity-60 mt-2 max-w-[300px] mx-auto">
-                    Fill out the payload to the left and click Launch to execute the workflow phase
-                    checkpoints.
+                  <p className="text-sm opacity-60 mt-2 max-w-[300px] text-center mx-auto">
+                    Fill out the payload to the left and click Launch to observe real-time deep-agent routing.
                   </p>
                 </div>
               ) : !store.currentQuestion ? (
-                <div className="flex flex-col items-center justify-start text-primary h-full w-full max-w-2xl mx-auto py-2">
-                  <PipelineProgress
-                    nodes={PIPELINE_NODES}
-                    events={store.langgraphEvents}
-                    values={store.langgraphValues}
-                  />
-                  <NodeCardList
-                    nodes={PIPELINE_NODES}
-                    events={store.langgraphEvents}
-                    values={store.langgraphValues}
-                  />
+                <div className="flex flex-col items-start justify-start h-full w-full max-w-2xl mx-auto overflow-hidden">
+                  <SubagentStreaming subagents={store.subagents} repoProgress={store.repoProgress} />
                 </div>
               ) : (
                 <div

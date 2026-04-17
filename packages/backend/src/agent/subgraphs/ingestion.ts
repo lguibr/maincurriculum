@@ -72,7 +72,7 @@ const fetchGithubTool = tool(
   }
 );
 
-const cloneRepoTool = tool(
+const processRepoTool = tool(
   async ({ repoUrl, repoName, index, total }, config) => {
     const tmpDir = path.resolve(process.cwd(), "../../temp_repos");
     const repoPath = path.join(tmpDir, repoName);
@@ -80,7 +80,7 @@ const cloneRepoTool = tool(
     try {
       await fs.access(repoPath);
       exists = true;
-    } catch {}
+    } catch { }
 
     const tag = index !== undefined && total !== undefined ? `[Repo ${index}/${total}] ` : "";
 
@@ -95,41 +95,52 @@ const cloneRepoTool = tool(
       );
       try {
         await execAsync(`git -C ${repoPath} pull`);
-      } catch {}
+      } catch { }
     }
-    return `Repository ${repoName} is securely sandbox mounted at ${repoPath}`;
-  },
-  {
-    name: "clone_repo",
-    description:
-      "Clones a git repo to the local filesystem for the underlying deepagent backend to access",
-    schema: z.object({
-      repoName: z.string(),
-      repoUrl: z.string(),
-      index: z.number().optional(),
-      total: z.number().optional(),
-    }),
-  }
-);
 
-const embedProjectTool = tool(
-  async ({ repoName, textContent, userProfileId, index, total }, config) => {
-    const tag = index !== undefined && total !== undefined ? `[Repo ${index}/${total}] ` : "";
+    await dispatchCustomEvent("progress", { msg: `${tag}Executing Repomix flattening...` }, config);
+    try {
+      await execAsync(`npx -y repomix -o output.txt`, { cwd: repoPath });
+    } catch (e: any) { }
+
+    let textContent = "";
+    try {
+      textContent = await fs.readFile(path.join(repoPath, "output.txt"), "utf-8");
+    } catch (e) {
+      return `[]`; // Return empty directives if fail
+    }
+
+    await dispatchCustomEvent("progress", { msg: `${tag}Summarizing flat source over mega-context...` }, config);
+    const llm = new ChatGoogleGenerativeAI({
+      model: "gemini-3-flash",
+      temperature: 0.1,
+      apiKey: process.env.GEMINI_API_KEY,
+    });
+    // Run summarization over the raw flattened repo
+    const summaryResponse = await llm.invoke([
+      { role: "system", content: "You are a tech analyst. Summarize the logic, architecture, and tech stack from this repository dump concisely." },
+      { role: "user", content: textContent.slice(0, 1000000) } // Provide up to 1M chars
+    ]);
+    const summary = summaryResponse.content.toString();
+
     await dispatchCustomEvent(
       "progress",
-      { msg: `${tag}Embedding ${repoName} high-level logic...` },
+      { msg: `${tag}Chunking and embedding architecture locally...` },
       config
     );
     const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 4000, chunkOverlap: 200 });
-    const docs = await splitter.createDocuments([textContent.slice(0, 16000)]);
+    // To ensure it doesn't run forever on giant repos, we embed up to 200 chunks (800k chars)
+    const docs = await splitter.createDocuments([textContent.slice(0, 800000)]);
     const embedder = await EmbedderPipeline.getInstance();
 
     const BATCH_SIZE = 16;
     const dbWrites: DbDirective[] = [];
+    
+    // Store the repomix dump directly in DB
     dbWrites.push({
       targetTable: "projects_raw_text",
       action: "upsert",
-      data: { repo_name: repoName, raw_text: textContent, user_profile_id: userProfileId },
+      data: { repo_name: repoName, raw_text: textContent, file_count: 1 } // Treat as 1 flattened file
     });
 
     for (let i = 0; i < docs.length; i += BATCH_SIZE) {
@@ -150,17 +161,18 @@ const embedProjectTool = tool(
             },
           });
         }
-      } catch {}
+      } catch { }
     }
+    
+    await dispatchCustomEvent("progress", { msg: `${tag}Repo ingestion complete.` }, config);
     return JSON.stringify(dbWrites);
   },
   {
-    name: "embed_project",
-    description: "Generate vector embeddings for repository text and return DB directives",
+    name: "process_repo",
+    description: "Clones repository, flattens via repomix, performs local embeddings and logical synthesis, returning DB directives.",
     schema: z.object({
       repoName: z.string(),
-      textContent: z.string(),
-      userProfileId: z.number().optional(),
+      repoUrl: z.string(),
       index: z.number().optional(),
       total: z.number().optional(),
     }),
@@ -178,13 +190,13 @@ const fsBackend = new FilesystemBackend({
 const deeperIngestionAgent = createDeepAgent({
   name: "ingestion",
   model: new ChatGoogleGenerativeAI({
-    model: "gemini-3.1-pro-preview",
+    model: "gemini-3-flash-preview",
     temperature: 1,
     apiKey: process.env.GEMINI_API_KEY,
   }),
   backend: fsBackend,
   systemPrompt: INGESTION_SYSTEM_PROMPT,
-  tools: [fetchGithubTool, cloneRepoTool, embedProjectTool],
+  tools: [fetchGithubTool, processRepoTool],
 });
 
 // ---------------- StateGraph Node ------------------ //
@@ -214,7 +226,7 @@ export async function ingestionSubGraph(
   if (directivesMatch && directivesMatch[1]) {
     try {
       parsedDirectives = JSON.parse(directivesMatch[1]);
-    } catch {}
+    } catch { }
   }
 
   return { pendingDbWrites: parsedDirectives, currentPhase: "Build Ontology" };

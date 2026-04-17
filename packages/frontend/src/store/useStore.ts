@@ -7,6 +7,14 @@ interface SSEMessage {
   payload?: Record<string, unknown>;
 }
 
+
+export interface SubagentStreamInterface {
+  id: string;
+  name: string;
+  status: "pending" | "running" | "complete" | "error";
+  content: string;
+}
+
 interface AppState {
   // Input State
   githubUsername: string;
@@ -26,6 +34,12 @@ interface AppState {
   isWizardComplete: boolean;
   langgraphEvents: Record<string, unknown>[];
   langgraphValues: Record<string, unknown>;
+  subagents: Record<string, SubagentStreamInterface>;
+  repoProgress: {
+    current: number;
+    total: number;
+    currentRepoName: string;
+  } | null;
 
   // Actions
   startAgent: () => Promise<void>;
@@ -54,6 +68,8 @@ export const useStore = create<AppState>((set, get) => ({
   isWizardComplete: false,
   langgraphEvents: [],
   langgraphValues: {},
+  subagents: {},
+  repoProgress: null,
 
   setIsRunning: (val) => set({ isRunning: val }),
   setIsWizardComplete: (val) => set({ isWizardComplete: val }),
@@ -71,6 +87,8 @@ export const useStore = create<AppState>((set, get) => ({
       isWizardComplete: false,
       langgraphEvents: [],
       langgraphValues: {},
+      subagents: {},
+      repoProgress: null,
     });
 
     try {
@@ -89,12 +107,127 @@ export const useStore = create<AppState>((set, get) => ({
 
         if (parsed.type === "langgraph_event") {
           if (parsed.payload) {
-            set((state) => ({
-              langgraphEvents: [
-                ...state.langgraphEvents,
-                parsed.payload as Record<string, unknown>,
-              ],
-            }));
+            const payload = parsed.payload as any;
+            
+            set((state) => {
+              const newSubagents = { ...state.subagents };
+              
+              let newRepoProgress = state.repoProgress;
+
+              if (payload.event === "on_tool_start") {
+                const nodeName = payload.name;
+                const runId = payload.run_id || nodeName;
+                if (nodeName) {
+                  let argsStr = "";
+                  try {
+                    argsStr = JSON.stringify(payload.data?.input || {}, null, 2);
+                  } catch (e) {}
+
+                  newSubagents[runId] = {
+                    id: runId,
+                    name: nodeName,
+                    status: "running",
+                    content: `Executing ${nodeName}...\n\n### Input Payload:\n\`\`\`json\n${argsStr}\n\`\`\``,
+                  };
+                  
+                  // Extract Repo Progress
+                  const input = payload.data?.input;
+                  if (input && (nodeName === "clone_repo" || nodeName === "embed_project")) {
+                    if (input.index && input.total) {
+                      newRepoProgress = {
+                        current: parseInt(input.index),
+                        total: parseInt(input.total),
+                        currentRepoName: input.repoName || "Unknown Repo",
+                      };
+                    }
+                  } else if (input?.file_path || input?.path) {
+                    // Try to guess from file path if it's operating on a repo
+                    const pathStr = String(input.file_path || input.path);
+                    const match = pathStr.match(/\/temp_repos\/([^/]+)/);
+                    if (match && match[1] && newRepoProgress) {
+                      if (newRepoProgress.currentRepoName !== match[1]) {
+                        newRepoProgress = {
+                          ...newRepoProgress,
+                          currentRepoName: match[1]
+                        };
+                      }
+                    }
+                  }
+                }
+              }
+
+              if (payload.event === "on_tool_end") {
+                const nodeName = payload.name;
+                const runId = payload.run_id || nodeName;
+                if (nodeName && newSubagents[runId]) {
+                  newSubagents[runId].status = "complete";
+                  
+                  let outputStr = "";
+                  if (typeof payload.data?.output === "string") {
+                    outputStr = payload.data.output;
+                  } else {
+                    try {
+                      outputStr = JSON.stringify(payload.data?.output || {}, null, 2);
+                    } catch (e) {}
+                  }
+
+                  if (outputStr && outputStr.length > 0) {
+                    newSubagents[runId].content += `\n\n### Output Result:\n\`\`\`json\n${outputStr}\n\`\`\``;
+                  }
+                }
+              }
+
+              if (payload.event === "on_chat_model_start") {
+                let nodeName = payload.metadata?.langgraph_node || payload.name;
+                if (nodeName === "model_request") nodeName = "DeepAgent Reasoner";
+                const runId = payload.run_id || nodeName;
+                
+                if (nodeName && nodeName !== "Supervisor") {
+                  newSubagents[runId] = {
+                    id: runId,
+                    name: nodeName,
+                    status: "running",
+                    content: newSubagents[runId]?.content || "",
+                  };
+                }
+              }
+
+              if (payload.event === "on_chat_model_stream") {
+                let nodeName = payload.metadata?.langgraph_node || payload.name;
+                if (nodeName === "model_request") nodeName = "DeepAgent Reasoner";
+                const runId = payload.run_id || nodeName;
+                
+                if (nodeName && nodeName !== "Supervisor") {
+                  if (!newSubagents[runId]) {
+                    newSubagents[runId] = {
+                      id: runId,
+                      name: nodeName,
+                      status: "running",
+                      content: "",
+                    };
+                  } else {
+                    newSubagents[runId].status = "running";
+                  }
+                  newSubagents[runId].content += payload.data?.chunk?.text || "";
+                }
+              }
+
+              if (payload.event === "on_chat_model_end") {
+                let nodeName = payload.metadata?.langgraph_node || payload.name;
+                if (nodeName === "model_request") nodeName = "DeepAgent Reasoner";
+                const runId = payload.run_id || nodeName;
+
+                if (nodeName && newSubagents[runId]) {
+                  newSubagents[runId].status = "complete";
+                }
+              }
+
+              return {
+                langgraphEvents: [...state.langgraphEvents, payload],
+                subagents: newSubagents,
+                repoProgress: newRepoProgress,
+              };
+            });
           }
           return;
         }
@@ -141,11 +274,19 @@ export const useStore = create<AppState>((set, get) => ({
         }
 
         if (parsed.type === "complete") {
-          set({
-            isRunning: false,
-            isWizardComplete: true,
-            currentPhase: "Onboarding Complete",
-            langgraphValues: { wizardCompleted: true },
+          set((state) => {
+            const finalSubapps = { ...state.subagents };
+            // Mark all stragglers as complete
+            for (const key of Object.keys(finalSubapps)) {
+              finalSubapps[key].status = "complete";
+            }
+            return {
+              isRunning: false,
+              isWizardComplete: true,
+              currentPhase: "Onboarding Complete",
+              langgraphValues: { wizardCompleted: true },
+              subagents: finalSubapps,
+            };
           });
           eventSource?.close();
         }

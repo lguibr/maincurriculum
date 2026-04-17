@@ -13,7 +13,7 @@ import {
 import { pool } from "../../db/client";
 
 const llm = new ChatGoogleGenerativeAI({
-  model: "gemini-3.1-pro-preview",
+  model: "gemini-3-flash-preview",
   temperature: 1,
   apiKey: process.env.GEMINI_API_KEY,
 });

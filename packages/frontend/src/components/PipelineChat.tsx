@@ -1,7 +1,6 @@
 import React, { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
-
-export type NodeStatus = "idle" | "streaming" | "complete";
+import { ChevronDown, ChevronUp, CheckCircle2, Circle, Loader2, FolderGit2 } from "lucide-react";
+import { SubagentStreamInterface } from "../store/useStore";
 
 export interface PipelineNode {
   name: string;
@@ -12,73 +11,80 @@ export interface PipelineNode {
 export const PIPELINE_NODES: PipelineNode[] = [
   { name: "IngestionAgent", stateKey: "ingestedProjects", label: "Repository Ingestion" },
   { name: "InterviewerAgent", stateKey: "finalSQLDemographics", label: "Profile Interview" },
-  { name: "Persister", stateKey: "wizardCompleted", label: "Database Commit" },
+  { name: "ImproverAgent", stateKey: "wizardCompleted", label: "CV Optimization" },
 ];
 
-const PIPELINE_NODE_NAMES = new Set(PIPELINE_NODES.map((n) => n.name));
-
-export function getStreamingContent(events: any[]): Record<string, string> {
-  const content: Record<string, string> = {};
-
-  for (const evt of events) {
-    if (evt.event === "on_chat_model_stream") {
-      let node = evt.metadata?.langgraph_node;
-
-      // Route internal deepagent nodes to the correct parent NodeCard
-      if (evt.metadata?.checkpoint_ns?.includes("IngestionAgent")) {
-        node = "IngestionAgent";
-      } else if (evt.metadata?.checkpoint_ns?.includes("InterviewerAgent")) {
-        node = "InterviewerAgent";
-      }
-
-      if (node && PIPELINE_NODE_NAMES.has(node)) {
-        if (!content[node]) content[node] = "";
-        content[node] += evt.data?.chunk?.text || "";
-      }
-    }
-  }
-
-  return content;
-}
-
-export function getNodeStatus(
-  node: PipelineNode,
-  streamingContent: Record<string, string>,
-  values: Record<string, unknown>
-): NodeStatus {
-  if (values?.[node.stateKey]) return "complete";
-  if (streamingContent[node.name]) return "streaming";
-  return "idle";
-}
-
-function formatContent(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (value == null) return "";
-  return JSON.stringify(value, null, 2);
-}
-
-export function NodeCard({
-  node,
-  status,
-  streamingContent,
-  completedContent,
+export function TodoList({
+  nodes,
+  values,
+  subagents,
 }: {
-  node: PipelineNode;
-  status: NodeStatus;
-  streamingContent: string | undefined;
-  completedContent: unknown;
+  nodes: typeof PIPELINE_NODES;
+  values: Record<string, unknown>;
+  subagents: Record<string, SubagentStreamInterface>;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  return (
+    <div className="flex flex-col gap-2 w-full mb-6">
+      {nodes.map((node, i) => {
+        // Determine status purely from the subagents state or final values
+        let status: "pending" | "running" | "complete" = "pending";
+        if (values?.[node.stateKey] || subagents[node.name]?.status === "complete") {
+          status = "complete";
+        } else if (subagents[node.name] || Object.keys(subagents).length > 0 && i === 0 && !values[node.stateKey]) {
+          // Heuristic: if any subagent of this node is running, it's running
+          // Better: if the macro node started or we just heuristically know
+          if (subagents[node.name]) {
+            status = subagents[node.name].status as any;
+          } else if (Object.keys(subagents).some(k => k.toLowerCase().includes(node.name.replace('Agent', '').toLowerCase()))) {
+            status = "running";
+          }
+        }
 
-  const displayContent =
-    status === "complete" ? formatContent(completedContent) : (streamingContent ?? "");
+        const colors = {
+          pending: "text-muted-foreground border-transparent bg-muted/20",
+          running: "text-primary border-primary bg-primary/10 shadow-[0_0_10px_rgba(var(--primary),0.2)] animate-pulse",
+          complete: "text-emerald-500 border-emerald-500/30 bg-emerald-500/10",
+        };
+
+        return (
+          <div
+            key={node.name}
+            className={`flex items-center gap-3 p-3 rounded-md border transition-all ${colors[status]}`}
+          >
+            {status === "complete" ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+            ) : status === "running" ? (
+              <Loader2 className="w-5 h-5 text-primary animate-spin" />
+            ) : (
+              <Circle className="w-5 h-5 text-muted-foreground" />
+            )}
+            <span className="font-semibold text-sm tracking-wide uppercase">
+              {node.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function SubagentCard({ subagent }: { subagent: SubagentStreamInterface }) {
+  const [collapsed, setCollapsed] = useState(subagent.status === "complete");
+
+  React.useEffect(() => {
+    if (subagent.status === "complete") {
+      setCollapsed(true);
+    } else if (subagent.status === "running") {
+      setCollapsed(false);
+    }
+  }, [subagent.status]);
 
   const statusBadge = {
-    idle: {
+    pending: {
       text: "Waiting",
       className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
     },
-    streaming: {
+    running: {
       text: "Running",
       className: "bg-blue-100 text-blue-700 animate-pulse dark:bg-blue-900 dark:text-blue-300",
     },
@@ -86,18 +92,26 @@ export function NodeCard({
       text: "Done",
       className: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
     },
+    error: {
+      text: "Error",
+      className: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+    },
   };
 
-  const badge = statusBadge[status];
+  const badge = statusBadge[subagent.status] || statusBadge.pending;
+
+  // Format node name from e.g. "DraftCV" to "Draft CV"
+  const formattedName = subagent.name.replace(/([A-Z])/g, ' $1').trim();
 
   return (
-    <div className="rounded-lg border bg-card shadow-sm overflow-hidden mb-3">
+    <div className="rounded-lg border bg-card shadow-sm overflow-hidden mb-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="flex w-full items-center justify-between p-4 bg-muted/20 hover:bg-muted/40 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <h3 className="font-semibold">{node.label}</h3>
+          <Loader2 className={`w-4 h-4 ${subagent.status === "running" ? "animate-spin text-primary" : "hidden"}`} />
+          <h3 className="font-semibold">{formattedName}</h3>
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}>
             {badge.text}
           </span>
@@ -109,11 +123,11 @@ export function NodeCard({
         )}
       </button>
 
-      {!collapsed && displayContent && (
-        <div className="border-t px-4 py-3 bg-card custom-scrollbar overflow-y-auto max-h-[300px]">
+      {!collapsed && subagent.content && (
+        <div className="border-t px-4 py-3 bg-muted/10 custom-scrollbar overflow-y-auto max-h-[300px]">
           <div className="prose prose-sm dark:prose-invert max-w-none font-mono text-xs whitespace-pre-wrap">
-            {displayContent}
-            {status === "streaming" && (
+            {subagent.content}
+            {subagent.status === "running" && (
               <span className="inline-block h-4 w-1 animate-pulse bg-blue-500 ml-1 align-middle" />
             )}
           </div>
@@ -123,73 +137,68 @@ export function NodeCard({
   );
 }
 
-export function NodeCardList({
-  nodes,
-  events,
-  values,
+export function RepoProgressTracker({
+  repoProgress,
 }: {
-  nodes: typeof PIPELINE_NODES;
-  events: any[];
-  values: Record<string, unknown>;
+  repoProgress: { current: number; total: number; currentRepoName: string; } | null;
 }) {
-  const streamingContent = getStreamingContent(events);
+  if (!repoProgress) return null;
+
+  const percentage = Math.round((repoProgress.current / repoProgress.total) * 100);
 
   return (
-    <div className="space-y-3 w-full h-full overflow-y-auto custom-scrollbar p-2">
-      {nodes.map((node) => {
-        const status = getNodeStatus(node, streamingContent, values);
-        return (
-          <NodeCard
-            key={node.name}
-            node={node}
-            status={status}
-            streamingContent={streamingContent[node.name]}
-            completedContent={values?.[node.stateKey]}
-          />
-        );
-      })}
+    <div className="mb-4 p-4 rounded-xl border border-primary/30 bg-card/80 shadow-lg relative overflow-hidden shrink-0 animate-in fade-in zoom-in-95 duration-500">
+      <div className="absolute top-0 right-0 p-8 bg-primary/10 blur-3xl rounded-full scale-150 transform -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+      <div className="relative flex flex-col gap-3">
+         <div className="flex justify-between items-center text-sm font-semibold tracking-wide text-foreground">
+            <span className="flex items-center gap-2">
+              <FolderGit2 className="w-5 h-5 text-primary" />
+              Processing: <span className="text-primary">{repoProgress.currentRepoName}</span>
+            </span>
+            <span className="text-muted-foreground bg-muted/50 px-2 py-1 rounded-md text-xs border border-border/50">
+              {repoProgress.current} / {repoProgress.total} Repositories
+            </span>
+         </div>
+         <div className="h-2.5 w-full bg-muted/80 rounded-full overflow-hidden shadow-inner border border-black/20">
+           <div className="h-full bg-primary transition-all duration-500 ease-out shadow-[0_0_10px_rgba(var(--primary),0.8)]" style={{ width: `${percentage}%` }} />
+         </div>
+      </div>
     </div>
   );
 }
 
-export function PipelineProgress({
-  nodes,
-  values,
-  events,
+export function SubagentStreaming({
+  subagents,
+  repoProgress,
 }: {
-  nodes: typeof PIPELINE_NODES;
-  values: Record<string, unknown>;
-  events: any[];
+  subagents: Record<string, SubagentStreamInterface>;
+  repoProgress?: { current: number; total: number; currentRepoName: string; } | null;
 }) {
-  const streamingContent = getStreamingContent(events);
+  // Filter out top-level structural nodes to focus on true subagents
+  const filteredSubagents = Object.values(subagents).filter(
+    (agent) =>
+      !["IngestionAgent", "InterviewerAgent", "ImproverAgent", "Supervisor", "Persister"].includes(
+        agent.name
+      )
+  );
+
+  if (filteredSubagents.length === 0) {
+    return (
+      <div className="text-center p-8 text-muted-foreground border border-dashed rounded-lg">
+        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 opacity-20" />
+        <p className="text-sm">Awaiting subagent dispatch...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-wrap items-center gap-1 justify-center w-full my-4">
-      {nodes.map((node, i) => {
-        const status = getNodeStatus(node, streamingContent, values);
-        const colors = {
-          idle: "bg-muted text-muted-foreground border-transparent",
-          streaming:
-            "bg-primary text-primary-foreground animate-pulse shadow-[0_0_10px_rgba(var(--primary),0.5)] border-primary",
-          complete:
-            "bg-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)] border-emerald-500",
-        };
-
-        return (
-          <div key={node.name} className="flex items-center">
-            <div className={`rounded-full px-3 py-1 text-xs font-medium border ${colors[status]}`}>
-              {node.label}
-            </div>
-            {i < nodes.length - 1 && (
-              <div
-                className={`mx-1 h-0.5 w-6 ${
-                  status === "complete" ? "bg-emerald-500" : "bg-muted-foreground/30"
-                }`}
-              />
-            )}
-          </div>
-        );
-      })}
+    <div className="flex flex-col w-full h-full overflow-hidden">
+      <RepoProgressTracker repoProgress={repoProgress || null} />
+      <div className="space-y-3 w-full flex-1 overflow-y-auto custom-scrollbar p-1">
+        {filteredSubagents.map((agent) => (
+          <SubagentCard key={agent.id} subagent={agent} />
+        ))}
+      </div>
     </div>
   );
 }
