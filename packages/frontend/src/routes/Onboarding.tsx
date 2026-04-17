@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import ReactMarkdown from "react-markdown";
 import { useStore } from "../store/useStore";
-import { TodoList, SubagentStreaming, PIPELINE_NODES } from "../components/PipelineChat";
+import { TodoList, SubagentStreaming, PIPELINE_NODES, RepoProgressTracker } from "../components/PipelineChat";
 
 export default function Onboarding() {
   const store = useStore();
@@ -46,6 +46,13 @@ export default function Onboarding() {
         <div className="flex items-center gap-4">
           <img src="/logo.png" alt="Main Curriculum Logo" className="h-10 w-auto object-contain" />
         </div>
+        
+        {store.repoProgress && (
+           <div className="flex-1 mx-8">
+             <RepoProgressTracker repoProgress={store.repoProgress} />
+           </div>
+        )}
+
         {store.isWizardComplete && (
           <Link
             to="/memory"

@@ -30,7 +30,19 @@ export async function persisterNode(state: ProfileGraphState, config?: RunnableC
         repoToProjectId.set(directive.data.repo_name, res.rows[0].id);
       } else if (directive.action === "insert") {
         if (directive.targetTable === "project_embeddings") {
-          const projectId = directive.data._repoNameRef ? repoToProjectId.get(directive.data._repoNameRef) : directive.data.project_id;
+          let projectId = directive.data._repoNameRef ? repoToProjectId.get(directive.data._repoNameRef) : directive.data.project_id;
+          if (!projectId && directive.data._repoNameRef && newUserProfileId !== null) {
+            try {
+              const res = await pool.query("SELECT id FROM projects_raw_text WHERE user_profile_id = $1 AND repo_name = $2", [newUserProfileId, directive.data._repoNameRef]);
+              if (res.rows.length > 0) {
+                 projectId = res.rows[0].id;
+                 repoToProjectId.set(directive.data._repoNameRef, projectId);
+              }
+            } catch (e: any) {
+              console.error(`[Persister] Failed lookup fallback: ${e.message}`);
+            }
+          }
+
           if (!projectId) {
             console.error(`[Persister] Missing project ID for embedding chunk`);
             continue;

@@ -63,15 +63,17 @@ app.post("/api/ingest/start", async (req, res) => {
 
   try {
     const preloadedMessages: any[] = [];
+    let existingProfileId = null;
     const latestProfileReq = await pool.query(
-      "SELECT demographics_json FROM user_profiles WHERE github_handle = $1 ORDER BY id DESC LIMIT 1",
+      "SELECT id, demographics_json FROM user_profiles WHERE github_handle = $1 ORDER BY id DESC LIMIT 1",
       [githubHandle]
     );
 
     if (latestProfileReq.rows.length > 0) {
+      existingProfileId = latestProfileReq.rows[0].id;
       const dem = latestProfileReq.rows[0].demographics_json;
       for (const key of ["skills", "education", "experience"]) {
-        if (Array.isArray(dem[key])) {
+        if (dem && Array.isArray(dem[key])) {
           dem[key].forEach((qa: any) => {
             preloadedMessages.push({ role: "assistant", content: `[${key}] ${qa.question}` });
             preloadedMessages.push({ role: "user", content: qa.answer });
@@ -81,7 +83,7 @@ app.post("/api/ingest/start", async (req, res) => {
     }
 
     for await (const event of await appGraph.streamEvents(
-      { githubUrl, baseCv, githubHandle, messages: preloadedMessages },
+      { githubUrl, baseCv, githubHandle, messages: preloadedMessages, userProfileId: existingProfileId },
       { version: "v2", recursionLimit: 150, configurable: { thread_id: SINGLETON_THREAD_ID } }
     )) {
       if (!activeSSEClient) continue;

@@ -52,7 +52,7 @@ export const StateAnnotation = Annotation.Root({
     default: () => "",
   }),
   userProfileId: Annotation<number | null>({
-    reducer: (a, b) => (b !== null ? b : a),
+    reducer: (a, b) => (b !== undefined ? b : a),
     default: () => null,
   }),
   workingExtendedCv: Annotation<string>({

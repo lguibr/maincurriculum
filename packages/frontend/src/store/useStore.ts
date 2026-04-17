@@ -35,11 +35,8 @@ interface AppState {
   langgraphEvents: Record<string, unknown>[];
   langgraphValues: Record<string, unknown>;
   subagents: Record<string, SubagentStreamInterface>;
-  repoProgress: {
-    current: number;
-    total: number;
-    currentRepoName: string;
-  } | null;
+  targetRepos: string[];
+  reposProgress: Record<string, { phase: string; progress: number, currentPhaseProgress: number }>;
 
   // Actions
   startAgent: () => Promise<void>;
@@ -69,7 +66,8 @@ export const useStore = create<AppState>((set, get) => ({
   langgraphEvents: [],
   langgraphValues: {},
   subagents: {},
-  repoProgress: null,
+  targetRepos: [],
+  reposProgress: {},
 
   setIsRunning: (val) => set({ isRunning: val }),
   setIsWizardComplete: (val) => set({ isWizardComplete: val }),
@@ -88,7 +86,8 @@ export const useStore = create<AppState>((set, get) => ({
       langgraphEvents: [],
       langgraphValues: {},
       subagents: {},
-      repoProgress: null,
+      targetRepos: [],
+      reposProgress: {},
     });
 
     try {
@@ -111,8 +110,18 @@ export const useStore = create<AppState>((set, get) => ({
             
             set((state) => {
               const newSubagents = { ...state.subagents };
-              
-              let newRepoProgress = state.repoProgress;
+              let newTargetRepos = [...state.targetRepos];
+              let newReposProgress = { ...state.reposProgress };
+
+              if (payload.event === "on_tool_end" && payload.name === "fetch_github_repos") {
+                try {
+                  const reposArray = JSON.parse(payload.data?.output);
+                  newTargetRepos = reposArray.map((r: any) => r.name);
+                  for (const name of newTargetRepos) {
+                    newReposProgress[name] = { phase: "Pending Initialization...", progress: 0, currentPhaseProgress: 0 };
+                  }
+                } catch(e) {}
+              }
 
               if (payload.event === "on_tool_start") {
                 const nodeName = payload.name;
@@ -132,25 +141,19 @@ export const useStore = create<AppState>((set, get) => ({
                   
                   // Extract Repo Progress
                   const input = payload.data?.input;
-                  if (input && (nodeName === "clone_repo" || nodeName === "embed_project")) {
-                    if (input.index && input.total) {
-                      newRepoProgress = {
-                        current: parseInt(input.index),
-                        total: parseInt(input.total),
-                        currentRepoName: input.repoName || "Unknown Repo",
-                      };
+                  if (input && (nodeName === "process_repo" || nodeName === "clone_repo" || nodeName === "embed_project")) {
+                    const rName = input.repoName;
+                    if (rName && newReposProgress[rName]) {
+                       newReposProgress[rName].phase = "Initializing...";
+                       newReposProgress[rName].currentPhaseProgress = 0;
+                       newReposProgress[rName].progress = 5;
                     }
                   } else if (input?.file_path || input?.path) {
                     // Try to guess from file path if it's operating on a repo
                     const pathStr = String(input.file_path || input.path);
                     const match = pathStr.match(/\/temp_repos\/([^/]+)/);
-                    if (match && match[1] && newRepoProgress) {
-                      if (newRepoProgress.currentRepoName !== match[1]) {
-                        newRepoProgress = {
-                          ...newRepoProgress,
-                          currentRepoName: match[1]
-                        };
-                      }
+                    if (match && match[1] && newReposProgress[match[1]]) {
+                       newReposProgress[match[1]].phase = "Reading Files...";
                     }
                   }
                 }
@@ -225,7 +228,8 @@ export const useStore = create<AppState>((set, get) => ({
               return {
                 langgraphEvents: [...state.langgraphEvents, payload],
                 subagents: newSubagents,
-                repoProgress: newRepoProgress,
+                reposProgress: newReposProgress,
+                targetRepos: newTargetRepos,
               };
             });
           }
@@ -236,14 +240,56 @@ export const useStore = create<AppState>((set, get) => ({
           set((state) => {
             let pgr = state.progress;
             let phase = state.currentPhase;
+            let newReposProgress = { ...state.reposProgress };
             const msg = parsed.message || "";
 
-            // Repo X/Y Processing
-            const repoMatch = msg.match(/\[Repo\s+(\d+)\/(\d+)\]\s+(.*)/);
-            if (repoMatch) {
-              pgr = (parseInt(repoMatch[1]) / parseInt(repoMatch[2])) * 100;
-              phase = repoMatch[3];
-            } else if (msg.includes("Found") && msg.includes("target repositories")) {
+            // Repo Processing
+            const repoMatch = msg.match(/\[Repo\s+(\d+)\/(\d+)\]\s+(?:Cloning|Pulling latest for|Summarizing flat source|Repo ingestion complete).*?\b([\w-]+\/[\w-]+|\w+)\b/i);
+            const repoNameFall = msg.match(/(?:\/temp_repos\/([^/]+))/);
+            
+            // Or look for specific messages that explicitly contain the name
+            let foundName = null;
+            for (const repoName of state.targetRepos) {
+              if (msg.includes(repoName)) foundName = repoName;
+            }
+            if (repoNameFall && repoNameFall[1]) foundName = repoNameFall[1];
+
+            if (foundName && newReposProgress[foundName]) {
+               let stepPgr = newReposProgress[foundName].currentPhaseProgress;
+               let innerPhase = newReposProgress[foundName].phase;
+
+               if (msg.includes("already ingested")) {
+                 stepPgr = 100;
+                 innerPhase = "Complete (Cached)";
+               } else if (msg.includes("Cloning")) {
+                 stepPgr = 10;
+                 innerPhase = "Cloning...";
+               } else if (msg.includes("Pulling")) {
+                 stepPgr = 10;
+                 innerPhase = "Pulling...";
+               } else if (msg.includes("flattening")) {
+                 stepPgr = 40;
+                 innerPhase = "Flattening Source";
+               } else if (msg.includes("embedding architecture")) {
+                 stepPgr = 60;
+                 innerPhase = "Embedding Code...";
+               } else if (msg.includes("Summarizing")) {
+                 stepPgr = 85;
+                 innerPhase = "LLM Summarization...";
+               } else if (msg.includes("Repo ingestion complete")) {
+                 stepPgr = 100;
+                 innerPhase = "Complete";
+               }
+
+               newReposProgress[foundName] = {
+                 ...newReposProgress[foundName],
+                 progress: stepPgr, // overall progress of this repo
+                 currentPhaseProgress: stepPgr,
+                 phase: innerPhase
+               };
+            }
+
+            if (msg.includes("Found") && msg.includes("target repositories")) {
               phase = "Preparing Repository Ingestion...";
               pgr = 5;
             } else if (msg.includes("Fetching GitHub repos")) {
@@ -261,6 +307,7 @@ export const useStore = create<AppState>((set, get) => ({
               logs: [...state.logs, msg],
               progress: pgr,
               currentPhase: phase,
+              reposProgress: newReposProgress,
             };
           });
         }

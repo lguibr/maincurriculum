@@ -56,7 +56,8 @@ const fetchGithubTool = tool(
         url: r.html_url,
         description: r.description,
         updatedAt: r.updated_at,
-      }));
+      }))
+      .slice(0, 3); // CONSTRAINT FOR TESTING
     await dispatchCustomEvent(
       "progress",
       { msg: `Found ${finalRepos.length} target repositories.` },

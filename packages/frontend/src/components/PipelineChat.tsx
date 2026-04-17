@@ -138,30 +138,65 @@ export function SubagentCard({ subagent }: { subagent: SubagentStreamInterface }
 }
 
 export function RepoProgressTracker({
-  repoProgress,
+  targetRepos,
+  reposProgress,
 }: {
-  repoProgress: { current: number; total: number; currentRepoName: string; } | null;
+  targetRepos: string[];
+  reposProgress: Record<string, { phase: string; progress: number, currentPhaseProgress: number }>;
 }) {
-  if (!repoProgress) return null;
+  if (targetRepos.length === 0) return null;
 
-  const percentage = Math.round((repoProgress.current / repoProgress.total) * 100);
+  let completedRepos = 0;
+  targetRepos.forEach(repo => {
+    if (reposProgress[repo] && reposProgress[repo].progress === 100) completedRepos++;
+  });
+
+  const totalPercentage = Math.round((completedRepos / targetRepos.length) * 100);
 
   return (
-    <div className="mb-4 p-4 rounded-xl border border-primary/30 bg-card/80 shadow-lg relative overflow-hidden shrink-0 animate-in fade-in zoom-in-95 duration-500">
-      <div className="absolute top-0 right-0 p-8 bg-primary/10 blur-3xl rounded-full scale-150 transform -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-      <div className="relative flex flex-col gap-3">
-         <div className="flex justify-between items-center text-sm font-semibold tracking-wide text-foreground">
-            <span className="flex items-center gap-2">
-              <FolderGit2 className="w-5 h-5 text-primary" />
-              Processing: <span className="text-primary">{repoProgress.currentRepoName}</span>
-            </span>
-            <span className="text-muted-foreground bg-muted/50 px-2 py-1 rounded-md text-xs border border-border/50">
-              {repoProgress.current} / {repoProgress.total} Repositories
-            </span>
-         </div>
-         <div className="h-2.5 w-full bg-muted/80 rounded-full overflow-hidden shadow-inner border border-black/20">
-           <div className="h-full bg-primary transition-all duration-500 ease-out shadow-[0_0_10px_rgba(var(--primary),0.8)]" style={{ width: `${percentage}%` }} />
-         </div>
+    <div className="flex flex-col w-full gap-4 shrink-0 animate-in fade-in zoom-in-95 duration-500 max-w-2xl mx-auto pb-4">
+      {/* Global Progress Bar */}
+      <div className="flex-1 px-4 py-2 rounded-xl border border-primary/30 bg-card/80 shadow-lg relative overflow-hidden backdrop-blur-md">
+        <div className="absolute top-0 right-0 p-8 bg-primary/10 blur-3xl rounded-full scale-150 transform -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+        <div className="relative flex flex-col gap-1.5">
+           <div className="flex justify-between items-center text-xs font-semibold tracking-wide text-foreground">
+              <span className="flex items-center gap-2">Global Pipeline</span>
+              <span className="text-muted-foreground bg-muted/50 px-2 flex items-center h-5 rounded-md text-[10px] border border-border/50">
+                {completedRepos} / {targetRepos.length} Repositories
+              </span>
+           </div>
+           <div className="h-1.5 w-full bg-muted/80 rounded-full overflow-hidden shadow-inner border border-black/20">
+             <div className="h-full bg-primary transition-all duration-500 ease-out shadow-[0_0_10px_rgba(var(--primary),0.8)]" style={{ width: `${totalPercentage}%` }} />
+           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
+        {targetRepos.map((repoName) => {
+           const rp = reposProgress[repoName];
+           const progress = rp?.progress || 0;
+           const phase = rp?.phase || "Waiting...";
+           const isComplete = progress === 100;
+
+           return (
+            <div key={repoName} className={`px-4 py-2 rounded-xl border shadow-md relative overflow-hidden backdrop-blur-md transition-all ${isComplete ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-primary/20 bg-card/80'}`}>
+              <div className="relative flex flex-col gap-1.5">
+                 <div className="flex justify-between items-center text-xs font-semibold tracking-wide text-foreground">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <FolderGit2 className={`w-3.5 h-3.5 shrink-0 ${isComplete ? 'text-emerald-500' : 'text-primary'}`} />
+                      <span className={`truncate max-w-[120px] ${isComplete ? 'text-emerald-500' : 'text-primary'}`} title={repoName}>{repoName}</span>
+                    </span>
+                    <span className="text-muted-foreground bg-muted/50 px-2 flex items-center h-5 rounded-md text-[10px] border border-border/50 truncate max-w-[160px]" title={phase}>
+                      {phase.replace("Executing ", "")}
+                    </span>
+                 </div>
+                 <div className="h-1.5 w-full bg-muted/80 rounded-full overflow-hidden shadow-inner border border-black/20">
+                   <div className={`h-full transition-all duration-500 ease-out shadow-[0_0_10px_rgba(16,185,129,0.8)] ${isComplete ? 'bg-emerald-500' : 'bg-primary'}`} style={{ width: `${progress}%` }} />
+                 </div>
+              </div>
+            </div>
+           );
+        })}
       </div>
     </div>
   );
@@ -169,10 +204,8 @@ export function RepoProgressTracker({
 
 export function SubagentStreaming({
   subagents,
-  repoProgress,
 }: {
   subagents: Record<string, SubagentStreamInterface>;
-  repoProgress?: { current: number; total: number; currentRepoName: string; } | null;
 }) {
   // Filter out top-level structural nodes to focus on true subagents
   const filteredSubagents = Object.values(subagents).filter(
@@ -193,7 +226,6 @@ export function SubagentStreaming({
 
   return (
     <div className="flex flex-col w-full h-full overflow-hidden">
-      <RepoProgressTracker repoProgress={repoProgress || null} />
       <div className="space-y-3 w-full flex-1 overflow-y-auto custom-scrollbar p-1">
         {filteredSubagents.map((agent) => (
           <SubagentCard key={agent.id} subagent={agent} />
