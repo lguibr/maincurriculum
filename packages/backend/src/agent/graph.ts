@@ -13,7 +13,10 @@ async function supervisorNode(state: typeof StateAnnotation.State) {
 
   // Logic based Routing (can also use LLM for complex routing)
   if (!state.currentPhase) {
-    return { currentPhase: "Initialize", nextAgent: "IngestionAgent" };
+    const writes = !state.userProfileId
+      ? [{ targetTable: "user_profiles", action: "insert", data: { github_handle: state.githubHandle, base_cv: state.baseCv } }]
+      : [];
+    return { currentPhase: "Initialize", nextAgent: "IngestionAgent", pendingDbWrites: writes };
   }
 
   if (state.githubHandle && (!state.repositories || state.repositories.length === 0)) {

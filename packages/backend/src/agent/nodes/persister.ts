@@ -16,19 +16,29 @@ export async function persisterNode(state: ProfileGraphState, config?: RunnableC
 
   let newUserProfileId = state.userProfileId;
 
+  const repoToProjectId = new Map<string, number>();
+
   for (const directive of state.pendingDbWrites) {
     try {
-      if (directive.action === "insert") {
-        if (directive.targetTable === "projects_raw_text") {
-          await pool.query(
-            "INSERT INTO projects_raw_text (user_profile_id, repo_name, raw_text) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
-            [newUserProfileId, directive.data.repo_name, directive.data.raw_text]
-          );
-        } else if (directive.targetTable === "project_embeddings") {
+      if (directive.action === "upsert" && directive.targetTable === "projects_raw_text" && newUserProfileId !== null) {
+        // Clear any old data to simulate upsert without unique constraints
+        await pool.query("DELETE FROM projects_raw_text WHERE user_profile_id = $1 AND repo_name = $2", [newUserProfileId, directive.data.repo_name]);
+        const res = await pool.query(
+          "INSERT INTO projects_raw_text (user_profile_id, repo_name, raw_text, file_count, repo_updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+          [newUserProfileId, directive.data.repo_name, directive.data.raw_text, directive.data.file_count || 1, directive.data.repo_updated_at]
+        );
+        repoToProjectId.set(directive.data.repo_name, res.rows[0].id);
+      } else if (directive.action === "insert") {
+        if (directive.targetTable === "project_embeddings") {
+          const projectId = directive.data._repoNameRef ? repoToProjectId.get(directive.data._repoNameRef) : directive.data.project_id;
+          if (!projectId) {
+            console.error(`[Persister] Missing project ID for embedding chunk`);
+            continue;
+          }
           await pool.query(
             "INSERT INTO project_embeddings (project_id, chunk_index, chunk_text, embedding) VALUES ($1, $2, $3, $4)",
             [
-              directive.data.project_id,
+              projectId,
               directive.data.chunk_index,
               directive.data.chunk_text,
               directive.data.embedding,

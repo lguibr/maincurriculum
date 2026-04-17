@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS projects_raw_text (
     repo_name VARCHAR(255) NOT NULL,
     raw_text TEXT NOT NULL,
     file_count INTEGER DEFAULT 0,
+    repo_updated_at VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -24,7 +24,7 @@ export type CVImproverStateType = typeof CVImproverState.State;
 async function matchGitHubProjects(state: CVImproverStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-flash-lite-latest",
     contents: `Review the current CV and the user's GitHub portfolio. Select up to 5 most impressive and relevant projects that should be highlighted or added to the CV to improve it.
 Current CV: ${state.current_cv}
 GitHub Portfolio: ${JSON.stringify((state.github_portfolio || []).map((p) => ({ name: p.name, description: p.description, language: p.language })))}
@@ -78,7 +78,7 @@ async function fetchRepoContext(state: CVImproverStateType, config?: RunnableCon
 async function evaluateCV(state: CVImproverStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-flash-lite-latest",
     contents: `You are an elite Tech Recruiter and Resume Coach specializing in Software Engineering, AI, Game Development, and Full Stack roles.
 Review the following CV against State-Of-The-Art (SOTA) industry standards.
 Look for the STAR method (Situation, Task, Action, Result) in their experience.
@@ -147,7 +147,7 @@ async function askUser(state: CVImproverStateType) {
 async function rewriteCV(state: CVImproverStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-flash-lite-latest",
     contents: `You are an expert CV writer for AI/Game/Full Stack Software Engineers.
 Rewrite the following CV to improve it based on the critique, the user's answers, and their GitHub projects.
 Ensure it strictly follows the STAR method where possible.

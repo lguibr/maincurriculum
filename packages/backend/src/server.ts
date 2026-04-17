@@ -329,7 +329,7 @@ You MUST output ONLY a valid stringified JSON object matching this exact structu
 Return ONLY valid JSON without backticks or markdown wrappers.`;
 
     const generation = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
+      model: "gemini-flash-latest",
       contents: prompt,
     });
 
@@ -414,7 +414,7 @@ Focus on:
 3. Condensing fluff into high-signal engineering impact.`;
 
     const generation = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
+      model: "gemini-flash-latest",
       contents: prompt,
     });
 

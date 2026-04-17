@@ -55,6 +55,7 @@ const fetchGithubTool = tool(
         name: r.name,
         url: r.html_url,
         description: r.description,
+        updatedAt: r.updated_at,
       }));
     await dispatchCustomEvent(
       "progress",
@@ -70,8 +71,11 @@ const fetchGithubTool = tool(
   }
 );
 
+// Out-of-band memory channel to prevent LLM tool-response token explosions.
+const tempWritesMap = new Map<string, DbDirective[]>();
+
 const processRepoTool = tool(
-  async ({ repoUrl, repoName, index, total }, config) => {
+  async ({ repoUrl, repoName, index, total, updatedAt }, config) => {
     const tmpDir = path.resolve(process.cwd(), "../../temp_repos");
     const repoPath = path.join(tmpDir, repoName);
     let exists = false;
@@ -81,6 +85,18 @@ const processRepoTool = tool(
     } catch { }
 
     const tag = index !== undefined && total !== undefined ? `[Repo ${index}/${total}] ` : "";
+
+    if (updatedAt) {
+      try {
+        const { rows } = await pool.query(`SELECT repo_updated_at FROM projects_raw_text WHERE repo_name = $1`, [repoName]);
+        if (rows.length > 0 && rows[0].repo_updated_at === updatedAt) {
+          await dispatchCustomEvent("progress", { msg: `${tag}Skipping ${repoName}, already ingested and up-to-date!` }, config);
+          return "[]";
+        }
+      } catch (e) {
+        // ignore DB error on check
+      }
+    }
 
     if (!exists) {
       await dispatchCustomEvent("progress", { msg: `${tag}Cloning ${repoName}...` }, config);
@@ -160,7 +176,7 @@ const processRepoTool = tool(
     const topChunks = contextChunks.slice(0, 4).map(c => c.text).join("\n\n---\n\n");
 
     const llm = new ChatGoogleGenerativeAI({
-      model: "gemini-3.1-flash-lite-preview",
+      model: "gemini-flash-latest",
       temperature: 0.1,
       apiKey: process.env.GEMINI_API_KEY,
     });
@@ -176,11 +192,16 @@ const processRepoTool = tool(
     dbWrites.push({
       targetTable: "projects_raw_text",
       action: "upsert",
-      data: { repo_name: repoName, raw_text: `SUMMARY:\n${summary}\n\nRAW TEXT:\n${textContent}`, file_count: 1 } // Treat as 1 flattened file
+      data: { repo_name: repoName, raw_text: `SUMMARY:\n${summary}\n\nRAW TEXT:\n${textContent}`, file_count: 1, repo_updated_at: updatedAt } // Treat as 1 flattened file
     });
 
     await dispatchCustomEvent("progress", { msg: `${tag}Repo ingestion complete.` }, config);
-    return JSON.stringify(dbWrites);
+
+    const threadId = config.configurable?.thread_id || "default";
+    if (!tempWritesMap.has(threadId)) tempWritesMap.set(threadId, []);
+    tempWritesMap.get(threadId)!.push(...dbWrites);
+
+    return `[x] Successfully completed ingestion and stored DB directives out-of-band for ${repoName}.`;
   },
   {
     name: "process_repo",
@@ -190,6 +211,7 @@ const processRepoTool = tool(
       repoUrl: z.string(),
       index: z.number().optional(),
       total: z.number().optional(),
+      updatedAt: z.string().optional(),
     }),
   }
 );
@@ -205,7 +227,7 @@ const fsBackend = new FilesystemBackend({
 const deeperIngestionAgent = createDeepAgent({
   name: "ingestion",
   model: new ChatGoogleGenerativeAI({
-    model: "gemini-3-flash-preview",
+    model: "gemini-flash-latest",
     temperature: 1,
     apiKey: process.env.GEMINI_API_KEY,
   }),
@@ -235,14 +257,10 @@ export async function ingestionSubGraph(
 
   const lastMsg = runResult.messages[runResult.messages.length - 1].content.toString();
 
-  // 2. Parse out directives from the deepagent's final output
-  const directivesMatch = lastMsg.match(/<directives>([\s\S]*?)<\/directives>/);
-  let parsedDirectives: DbDirective[] = [];
-  if (directivesMatch && directivesMatch[1]) {
-    try {
-      parsedDirectives = JSON.parse(directivesMatch[1]);
-    } catch { }
-  }
+  // 2. Extract directives from the out-of-band channel instead of making the LLM write 30MB of text.
+  const threadId = config?.configurable?.thread_id || "default";
+  let parsedDirectives: DbDirective[] = tempWritesMap.get(threadId) || [];
+  tempWritesMap.delete(threadId); // Clean up memory
 
   return { pendingDbWrites: parsedDirectives, currentPhase: "Build Ontology" };
 }

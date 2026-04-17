@@ -32,7 +32,7 @@ async function analyzeJD(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
 
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-flash-lite-latest",
     contents: `Analyze the following Job Description and extract the core technologies, soft skills, and vibe/tone.
 Job Description:
 ${state.job_description}
@@ -64,7 +64,7 @@ Output ONLY valid JSON.`,
 async function profileMatch(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-flash-lite-latest",
     contents: `Match the job description analysis against the base CV and GitHub portfolio. Select up to 3 most relevant GitHub projects.
 JD Analysis: ${JSON.stringify(state.jd_analysis)}
 Base CV: ${state.base_cv}
@@ -136,7 +136,7 @@ async function draftDocs(state: AgentStateType, config?: RunnableConfig) {
   }
 
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-flash-lite-latest",
     contents: `Draft a highly tailored CV and Cover Letter based on the following inputs.
 JD Analysis: ${JSON.stringify(state.jd_analysis)}
 Base CV: ${state.base_cv}
@@ -182,7 +182,7 @@ Output a JSON object with 'draft_cv' (markdown format) and 'draft_cover_letter' 
 async function critiqueTruth(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-flash-lite-latest",
     contents: `You are the Truthfulness Critic. Compare the Draft CV/Cover Letter against the provided GitHub Repo context and Base CV.
 Are there any blatantly invented claims, skills, or metrics? 
 
@@ -210,7 +210,7 @@ Output a brief critique or "OK" if everything is grounded in the source data.`,
 async function critiqueStar(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-flash-lite-latest",
     contents: `You are the STAR Method Critic. Evaluate the Draft CV.
 Do the bullet points and any application answers effectively use the STAR method (Situation, Task, Action, Result)? Or are they just a list of responsibilities?
 
@@ -234,7 +234,7 @@ Output specific areas for improvement, or "OK" if well-formatted.`,
 async function critiqueVerbosity(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-flash-lite-latest",
     contents: `You are the Conciseness Critic. Evaluate the Draft CV and Draft Cover Letter.
 Are they too wordy, rambling, or dense? Are they too sparse and lacking detail?
 
@@ -257,7 +257,7 @@ Output specific wording suggestions, or "OK" if perfectly balanced.`,
 async function critiqueTone(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-flash-lite-latest",
     contents: `You are the Tone Critic. Analyze the Draft CV and Cover Letter against the Job Description vibe.
 Does the candidate show off appropriately without sounding arrogant or overly boastful?
 
@@ -282,7 +282,7 @@ Output tone adjustments needed, or "OK" if tone matches beautifully.`,
 async function critiqueAggregator(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-flash-lite-latest",
     contents: `You are the Master Editor. Analyze the following 4 distinct critiques of the current Draft CV and Cover Letter.
     
 1. Truthfulness Critique: ${state.critique_truth}
