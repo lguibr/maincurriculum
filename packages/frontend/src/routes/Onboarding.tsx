@@ -47,12 +47,6 @@ export default function Onboarding() {
           <img src="/logo.png" alt="Main Curriculum Logo" className="h-10 w-auto object-contain" />
         </div>
         
-        {store.repoProgress && (
-           <div className="flex-1 mx-8">
-             <RepoProgressTracker repoProgress={store.repoProgress} />
-           </div>
-        )}
-
         {store.isWizardComplete && (
           <Link
             to="/memory"
@@ -150,7 +144,7 @@ export default function Onboarding() {
                 </div>
               ) : !store.currentQuestion ? (
                 <div className="flex flex-col items-start justify-start h-full w-full max-w-2xl mx-auto overflow-hidden">
-                  <SubagentStreaming subagents={store.subagents} repoProgress={store.repoProgress} />
+                  <SubagentStreaming subagents={store.subagents} />
                 </div>
               ) : (
                 <div
@@ -221,6 +215,13 @@ export default function Onboarding() {
             </div>
           </div>
         </div>
+
+        {/* Bottom Half: Full-width Progress Bar Grid */}
+        {store.targetRepos.length > 0 && (
+           <div className="w-full max-w-7xl shrink-0 mt-6 h-auto max-h-[40vh] overflow-y-auto custom-scrollbar border-t border-border/40 pt-6 animate-in slide-in-from-bottom-5">
+             <RepoProgressTracker targetRepos={store.targetRepos} reposProgress={store.reposProgress} />
+           </div>
+        )}
       </main>
     </div>
   );
