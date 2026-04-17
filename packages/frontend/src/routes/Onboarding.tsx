@@ -217,11 +217,9 @@ export default function Onboarding() {
         </div>
 
         {/* Bottom Half: Full-width Progress Bar Grid */}
-        {store.targetRepos.length > 0 && (
-           <div className="w-full max-w-7xl shrink-0 mt-6 h-auto max-h-[40vh] overflow-y-auto custom-scrollbar border-t border-border/40 pt-6 animate-in slide-in-from-bottom-5">
-             <RepoProgressTracker targetRepos={store.targetRepos} reposProgress={store.reposProgress} />
-           </div>
-        )}
+        <div className="w-full max-w-7xl shrink-0 mt-6 h-auto max-h-[40vh] overflow-y-auto custom-scrollbar border-t border-border/40 pt-6 animate-in slide-in-from-bottom-5">
+           <RepoProgressTracker targetRepos={store.targetRepos} reposProgress={store.reposProgress} globalProgressOverride={store.progress} globalPhaseOverride={store.currentPhase} />
+        </div>
       </main>
     </div>
   );

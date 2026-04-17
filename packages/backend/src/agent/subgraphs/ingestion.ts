@@ -189,8 +189,8 @@ const processRepoTool = tool(
     ]);
     const summary = summaryResponse.content.toString();
 
-    // Store the repomix dump AND summary directly in DB
-    dbWrites.push({
+    // Store the repomix dump AND summary directly in DB BEFORE embeddings
+    dbWrites.unshift({
       targetTable: "projects_raw_text",
       action: "upsert",
       data: { repo_name: repoName, raw_text: `SUMMARY:\n${summary}\n\nRAW TEXT:\n${textContent}`, file_count: 1, repo_updated_at: updatedAt } // Treat as 1 flattened file

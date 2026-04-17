@@ -140,63 +140,82 @@ export function SubagentCard({ subagent }: { subagent: SubagentStreamInterface }
 export function RepoProgressTracker({
   targetRepos,
   reposProgress,
+  globalProgressOverride,
+  globalPhaseOverride,
 }: {
   targetRepos: string[];
   reposProgress: Record<string, { phase: string; progress: number, currentPhaseProgress: number }>;
+  globalProgressOverride: number;
+  globalPhaseOverride?: string;
 }) {
-  if (targetRepos.length === 0) return null;
-
   let completedRepos = 0;
   targetRepos.forEach(repo => {
     if (reposProgress[repo] && reposProgress[repo].progress === 100) completedRepos++;
   });
 
-  const totalPercentage = Math.round((completedRepos / targetRepos.length) * 100);
+  const isPending = targetRepos.length === 0;
+  
+  // Provide a minimum visible percentage if it's started but not yet mapped
+  let totalPercentage = 0;
+  if (!isPending) {
+     totalPercentage = Math.round((completedRepos / targetRepos.length) * 100);
+  } else {
+     totalPercentage = globalProgressOverride;
+  }
+
+  // Define pending message dynamically
+  const pendingMessage = globalProgressOverride > 0 && globalPhaseOverride ? globalPhaseOverride : "Waiting for payload...";
 
   return (
-    <div className="flex flex-col w-full gap-4 shrink-0 animate-in fade-in zoom-in-95 duration-500 max-w-2xl mx-auto pb-4">
+    <div className="flex flex-col w-full gap-4 shrink-0 animate-in fade-in zoom-in-95 duration-500 max-w-4xl mx-auto pb-4">
       {/* Global Progress Bar */}
-      <div className="flex-1 px-4 py-2 rounded-xl border border-primary/30 bg-card/80 shadow-lg relative overflow-hidden backdrop-blur-md">
+      <div className="flex-1 px-5 py-3 rounded-xl border border-primary/30 bg-card shadow-lg relative overflow-hidden backdrop-blur-md">
         <div className="absolute top-0 right-0 p-8 bg-primary/10 blur-3xl rounded-full scale-150 transform -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-        <div className="relative flex flex-col gap-1.5">
-           <div className="flex justify-between items-center text-xs font-semibold tracking-wide text-foreground">
-              <span className="flex items-center gap-2">Global Pipeline</span>
-              <span className="text-muted-foreground bg-muted/50 px-2 flex items-center h-5 rounded-md text-[10px] border border-border/50">
-                {completedRepos} / {targetRepos.length} Repositories
+        <div className="relative flex flex-col gap-2">
+           <div className="flex justify-between items-center text-sm font-bold tracking-wide text-foreground uppercase">
+              <span className="flex items-center gap-2">Overall Ingestion Progress</span>
+              <span className="text-muted-foreground bg-muted/80 px-2 py-0.5 flex items-center rounded text-xs border border-border/50">
+                {isPending ? pendingMessage : `${completedRepos} / ${targetRepos.length} Repositories`}
               </span>
            </div>
-           <div className="h-1.5 w-full bg-muted/80 rounded-full overflow-hidden shadow-inner border border-black/20">
+           <div className="h-2.5 w-full bg-muted/80 rounded-full overflow-hidden shadow-inner border border-black/30">
              <div className="h-full bg-primary transition-all duration-500 ease-out shadow-[0_0_10px_rgba(var(--primary),0.8)]" style={{ width: `${totalPercentage}%` }} />
            </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
-        {targetRepos.map((repoName) => {
-           const rp = reposProgress[repoName];
-           const progress = rp?.progress || 0;
-           const phase = rp?.phase || "Waiting...";
-           const isComplete = progress === 100;
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
+        {isPending ? (
+          <div className="col-span-full py-4 text-center text-muted-foreground opacity-50 flex items-center justify-center border border-dashed border-border/50 rounded-xl h-[70px]">
+            {globalProgressOverride > 0 ? "Analyzing source systems and determining target repositories..." : "No active repositories. Waiting for launch command..."}
+          </div>
+        ) : (
+          targetRepos.map((repoName) => {
+             const rp = reposProgress[repoName];
+             const progress = rp?.progress || 0;
+             const phase = rp?.phase || "Waiting...";
+             const isComplete = progress === 100;
 
-           return (
-            <div key={repoName} className={`px-4 py-2 rounded-xl border shadow-md relative overflow-hidden backdrop-blur-md transition-all ${isComplete ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-primary/20 bg-card/80'}`}>
-              <div className="relative flex flex-col gap-1.5">
-                 <div className="flex justify-between items-center text-xs font-semibold tracking-wide text-foreground">
-                    <span className="flex items-center gap-1.5 truncate">
-                      <FolderGit2 className={`w-3.5 h-3.5 shrink-0 ${isComplete ? 'text-emerald-500' : 'text-primary'}`} />
-                      <span className={`truncate max-w-[120px] ${isComplete ? 'text-emerald-500' : 'text-primary'}`} title={repoName}>{repoName}</span>
-                    </span>
-                    <span className="text-muted-foreground bg-muted/50 px-2 flex items-center h-5 rounded-md text-[10px] border border-border/50 truncate max-w-[160px]" title={phase}>
-                      {phase.replace("Executing ", "")}
-                    </span>
-                 </div>
-                 <div className="h-1.5 w-full bg-muted/80 rounded-full overflow-hidden shadow-inner border border-black/20">
-                   <div className={`h-full transition-all duration-500 ease-out shadow-[0_0_10px_rgba(16,185,129,0.8)] ${isComplete ? 'bg-emerald-500' : 'bg-primary'}`} style={{ width: `${progress}%` }} />
-                 </div>
+             return (
+              <div key={repoName} className={`px-4 py-2 rounded-xl border shadow-md relative overflow-hidden backdrop-blur-md transition-all ${isComplete ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-primary/20 bg-card/80'}`}>
+                <div className="relative flex flex-col gap-1.5">
+                   <div className="flex justify-between items-center text-xs font-semibold tracking-wide text-foreground">
+                      <span className="flex items-center gap-1.5 truncate">
+                        <FolderGit2 className={`w-3.5 h-3.5 shrink-0 ${isComplete ? 'text-emerald-500' : 'text-primary'}`} />
+                        <span className={`truncate max-w-[120px] ${isComplete ? 'text-emerald-500' : 'text-primary'}`} title={repoName}>{repoName}</span>
+                      </span>
+                      <span className="text-muted-foreground bg-muted/50 px-2 flex items-center h-5 rounded-md text-[10px] border border-border/50 truncate max-w-[160px]" title={phase}>
+                        {phase.replace("Executing ", "")}
+                      </span>
+                   </div>
+                   <div className="h-1.5 w-full bg-muted/80 rounded-full overflow-hidden shadow-inner border border-black/20">
+                     <div className={`h-full transition-all duration-500 ease-out shadow-[0_0_10px_rgba(16,185,129,0.8)] ${isComplete ? 'bg-emerald-500' : 'bg-primary'}`} style={{ width: `${progress}%` }} />
+                   </div>
+                </div>
               </div>
-            </div>
-           );
-        })}
+             );
+          })
+        )}
       </div>
     </div>
   );

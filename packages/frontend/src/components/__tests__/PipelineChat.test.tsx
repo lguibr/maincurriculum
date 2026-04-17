@@ -96,19 +96,22 @@ describe("Frontend Progress Bar and Error Integration", () => {
 
   // ========== PROGRESS UI TESTS ==========
 
-  it("4. Shows empty global progress initially when no repos are targeted", () => {
-    const { container } = render(
-      <RepoProgressTracker targetRepos={[]} reposProgress={{}} />
-    );
-    // Should render null
-    expect(container.firstChild).toBeNull();
+  it("4. Shows empty global progress unconditionally initially with placeholder when no repos are targeted", () => {
+    const { rerender } = render(<RepoProgressTracker targetRepos={[]} reposProgress={{}} globalProgressOverride={0} />);
+    expect(screen.getByText("Waiting for payload...")).toBeInTheDocument();
+    expect(screen.getByText("No active repositories. Waiting for launch command...")).toBeInTheDocument();
+
+    // Rerender with active progress but no target repos yet
+    rerender(<RepoProgressTracker targetRepos={[]} reposProgress={{}} globalProgressOverride={5} globalPhaseOverride="Connecting to Github..." />);
+    expect(screen.getByText("Connecting to Github...")).toBeInTheDocument();
+    expect(screen.getByText("Analyzing source systems and determining target repositories...")).toBeInTheDocument();
   });
 
   it("5. Generates new sub-bars for Repo 1", () => {
     const targetRepos = ["lib-one"];
     const reposProgress = { "lib-one": { phase: "Pending Initialization...", progress: 0, currentPhaseProgress: 0 }};
     
-    render(<RepoProgressTracker targetRepos={targetRepos} reposProgress={reposProgress} />);
+    render(<RepoProgressTracker targetRepos={targetRepos} reposProgress={reposProgress} globalProgressOverride={0} />);
     
     expect(screen.getByText("lib-one")).toBeInTheDocument();
     expect(screen.getByText("0 / 1 Repositories")).toBeInTheDocument();
@@ -122,7 +125,7 @@ describe("Frontend Progress Bar and Error Integration", () => {
       "beta": { phase: "Waiting", progress: 0, currentPhaseProgress: 0 }
     };
     
-    render(<RepoProgressTracker targetRepos={targetRepos} reposProgress={reposProgress} />);
+    render(<RepoProgressTracker targetRepos={targetRepos} reposProgress={reposProgress} globalProgressOverride={0} />);
     
     expect(screen.getByText("alpha")).toBeInTheDocument();
     expect(screen.getByText("beta")).toBeInTheDocument();
@@ -138,7 +141,7 @@ describe("Frontend Progress Bar and Error Integration", () => {
       "repo4": { phase: "Pending", progress: 0, currentPhaseProgress: 0 }
     };
     
-    const { container } = render(<RepoProgressTracker targetRepos={targetRepos} reposProgress={reposProgress} />);
+    const { container } = render(<RepoProgressTracker targetRepos={targetRepos} reposProgress={reposProgress} globalProgressOverride={0} />);
     
     // 2 out of 4 are 100% complete
     expect(screen.getByText("2 / 4 Repositories")).toBeInTheDocument();
@@ -154,7 +157,7 @@ describe("Frontend Progress Bar and Error Integration", () => {
       "main-app": { phase: "Complete", progress: 100, currentPhaseProgress: 100 }
     };
     
-    const { container } = render(<RepoProgressTracker targetRepos={targetRepos} reposProgress={reposProgress} />);
+    const { container } = render(<RepoProgressTracker targetRepos={targetRepos} reposProgress={reposProgress} globalProgressOverride={0} />);
     
     expect(screen.getByText("1 / 1 Repositories")).toBeInTheDocument();
     
