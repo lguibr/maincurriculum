@@ -1,98 +1,54 @@
 import { StateGraph, START, END } from "@langchain/langgraph";
-import { StateAnnotation, ProfileGraphState } from "./state";
+import { StateAnnotation } from "./state";
+import { MemorySaver } from "@langchain/langgraph";
+
+// Nodes
 import { persisterNode } from "./nodes/persister";
-import { ingestionSubGraph } from "./subgraphs/ingestion";
-import { interviewerSubGraph } from "./subgraphs/interviewer";
-import { improverSubGraph } from "./subgraphs/improver";
+import { FetchRepositories } from "./nodes/FetchRepositories";
+import { EmbedAndSummarize } from "./nodes/EmbedAndSummarize";
+import { ExtractEntities } from "./nodes/ExtractEntities";
+import { EvaluateCompleteness } from "./nodes/EvaluateCompleteness";
+import { ImproveCV } from "./nodes/ImproveCV";
+import { InterviewInterrupt } from "./nodes/InterviewInterrupt";
 
-async function supervisorNode(state: typeof StateAnnotation.State) {
-  // Check if we have db writes pending from a previous cycle that Supervisor happened to intercept (unlikely due to routing, but safe)
-  if (state.pendingDbWrites && state.pendingDbWrites.length > 0) {
-    return {};
+export async function InitializeProfile(state: typeof StateAnnotation.State) {
+  if (!state.userProfileId && state.githubHandle) {
+    const writes = [
+      { 
+        targetTable: "user_profiles", 
+        action: "insert" as const, 
+        data: { github_handle: state.githubHandle || "", base_cv: state.baseCv || "" } 
+      }
+    ];
+    return { currentPhase: "Initialize", pendingDbWrites: writes };
   }
-
-  // Logic based Routing (can also use LLM for complex routing)
-  if (!state.currentPhase) {
-    const writes = !state.userProfileId
-      ? [{ targetTable: "user_profiles", action: "insert", data: { github_handle: state.githubHandle, base_cv: state.baseCv } }]
-      : [];
-    return { currentPhase: "Initialize", nextAgent: "IngestionAgent", pendingDbWrites: writes };
-  }
-
-  if (state.githubHandle && (!state.repositories || state.repositories.length === 0)) {
-    return { nextAgent: "IngestionAgent" };
-  }
-
-  // Master CV Improvements
-  if (state.currentPhase === "Improver") {
-    return { nextAgent: "ImproverAgent" };
-  }
-
-  // Interview flow
-  if (
-    state.missingCount !== 0 ||
-    (state.interviewHistory &&
-      state.interviewHistory.length > 0 &&
-      !state.interviewHistory[state.interviewHistory.length - 1]?.answer)
-  ) {
-    return { nextAgent: "InterviewerAgent" };
-  }
-
-  return { nextAgent: "END" };
-}
-
-function supervisorRouter(state: typeof StateAnnotation.State) {
-  if (state.pendingDbWrites && state.pendingDbWrites.length > 0) {
-    return "Persister";
-  }
-  if (state.nextAgent === "IngestionAgent") return "IngestionAgent";
-  if (state.nextAgent === "InterviewerAgent") return "InterviewerAgent";
-  if (state.nextAgent === "ImproverAgent") return "ImproverAgent";
-  return END;
-}
-
-function subGraphRouter(state: typeof StateAnnotation.State) {
-  // If a subgraph generated db writes, route to Persister before returning to Supervisor
-  if (state.pendingDbWrites && state.pendingDbWrites.length > 0) {
-    return "Persister";
-  }
-  return "Supervisor";
-}
-
-function persisterRouter(state: typeof StateAnnotation.State) {
-  // After persisting, always return to Supervisor to re-evaluate state
-  return "Supervisor";
+  return {};
 }
 
 const workflow = new StateGraph(StateAnnotation)
-  .addNode("Supervisor", supervisorNode)
-  .addNode("IngestionAgent", ingestionSubGraph)
-  .addNode("InterviewerAgent", interviewerSubGraph)
-  .addNode("ImproverAgent", improverSubGraph)
-  .addNode("Persister", persisterNode)
+  .addNode("InitializeProfile", InitializeProfile)
+  .addNode("PersisterInit", persisterNode)
+  .addNode("FetchRepositories", FetchRepositories)
+  .addNode("EmbedAndSummarize", EmbedAndSummarize)
+  .addNode("PersisterIngestion", persisterNode)
+  .addNode("ExtractEntities", ExtractEntities)
+  .addNode("EvaluateCompleteness", EvaluateCompleteness)
+  .addNode("ImproveCV", ImproveCV)
+  .addNode("PersisterImprovement", persisterNode)
+  .addNode("InterviewInterrupt", InterviewInterrupt)
 
-  .addEdge(START, "Supervisor")
-  .addConditionalEdges("Supervisor", supervisorRouter, {
-    Persister: "Persister",
-    IngestionAgent: "IngestionAgent",
-    InterviewerAgent: "InterviewerAgent",
-    ImproverAgent: "ImproverAgent",
-    [END]: END,
-  })
-  .addConditionalEdges("IngestionAgent", subGraphRouter, {
-    Persister: "Persister",
-    Supervisor: "Supervisor",
-  })
-  .addConditionalEdges("InterviewerAgent", subGraphRouter, {
-    Persister: "Persister",
-    Supervisor: "Supervisor",
-  })
-  .addConditionalEdges("ImproverAgent", subGraphRouter, {
-    Persister: "Persister",
-    Supervisor: "Supervisor",
-  })
-  .addConditionalEdges("Persister", persisterRouter, {
-    Supervisor: "Supervisor",
-  });
+  // Linear Flow Connections
+  .addEdge(START, "InitializeProfile")
+  .addEdge("InitializeProfile", "PersisterInit")
+  .addEdge("PersisterInit", "FetchRepositories")
+  .addEdge("FetchRepositories", "EmbedAndSummarize")
+  .addEdge("EmbedAndSummarize", "PersisterIngestion")
+  .addEdge("PersisterIngestion", "ExtractEntities")
+  .addEdge("ExtractEntities", "EvaluateCompleteness")
+  .addEdge("EvaluateCompleteness", "ImproveCV")
+  .addEdge("ImproveCV", "PersisterImprovement")
+  .addEdge("PersisterImprovement", "InterviewInterrupt")
+  .addEdge("InterviewInterrupt", END);
 
-export const appGraph = workflow.compile();
+const checkpointer = new MemorySaver();
+export const appGraph = workflow.compile({ checkpointer });
