@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 "use client";
 
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
@@ -6,14 +7,36 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 function Tabs({ className, orientation = "horizontal", ...props }: TabsPrimitive.Root.Props) {
+=======
+import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
+import { cva, type VariantProps } from "class-variance-authority"
+
+import { cn } from "@/lib/utils"
+
+function Tabs({
+  className,
+  orientation = "horizontal",
+  ...props
+}: TabsPrimitive.Root.Props) {
+>>>>>>> Stashed changes
   return (
     <TabsPrimitive.Root
       data-slot="tabs"
       data-orientation={orientation}
+<<<<<<< Updated upstream
       className={cn("group/tabs flex gap-2 data-horizontal:flex-col", className)}
       {...props}
     />
   );
+=======
+      className={cn(
+        "group/tabs flex gap-2 data-horizontal:flex-col",
+        className
+      )}
+      {...props}
+    />
+  )
+>>>>>>> Stashed changes
 }
 
 const tabsListVariants = cva(
@@ -29,7 +52,11 @@ const tabsListVariants = cva(
       variant: "default",
     },
   }
+<<<<<<< Updated upstream
 );
+=======
+)
+>>>>>>> Stashed changes
 
 function TabsList({
   className,
@@ -43,7 +70,11 @@ function TabsList({
       className={cn(tabsListVariants({ variant }), className)}
       {...props}
     />
+<<<<<<< Updated upstream
   );
+=======
+  )
+>>>>>>> Stashed changes
 }
 
 function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
@@ -59,7 +90,11 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
       )}
       {...props}
     />
+<<<<<<< Updated upstream
   );
+=======
+  )
+>>>>>>> Stashed changes
 }
 
 function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
@@ -69,7 +104,14 @@ function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
       className={cn("flex-1 text-sm outline-none", className)}
       {...props}
     />
+<<<<<<< Updated upstream
   );
 }
 
 export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants };
+=======
+  )
+}
+
+export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants }
+>>>>>>> Stashed changes

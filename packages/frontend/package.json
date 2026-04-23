@@ -14,7 +14,10 @@
   "dependencies": {
     "@base-ui/react": "^1.4.0",
     "@fontsource-variable/geist": "^5.2.8",
+    "@google/genai": "^1.50.1",
     "@huggingface/transformers": "^4.2.0",
+    "@langchain/core": "^1.1.41",
+    "@langchain/langgraph": "^1.2.9",
     "@langchain/react": "^0.3.3",
     "@maincurriculum/shared": "*",
     "@mediapipe/tasks-genai": "^0.10.27",

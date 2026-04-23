@@ -1,8 +1,21 @@
+<<<<<<< Updated upstream
 import { Progress as ProgressPrimitive } from "@base-ui/react/progress";
 
 import { cn } from "@/lib/utils";
 
 function Progress({ className, children, value, ...props }: ProgressPrimitive.Root.Props) {
+=======
+import { Progress as ProgressPrimitive } from "@base-ui/react/progress"
+
+import { cn } from "@/lib/utils"
+
+function Progress({
+  className,
+  children,
+  value,
+  ...props
+}: ProgressPrimitive.Root.Props) {
+>>>>>>> Stashed changes
   return (
     <ProgressPrimitive.Root
       value={value}
@@ -15,7 +28,11 @@ function Progress({ className, children, value, ...props }: ProgressPrimitive.Ro
         <ProgressIndicator />
       </ProgressTrack>
     </ProgressPrimitive.Root>
+<<<<<<< Updated upstream
   );
+=======
+  )
+>>>>>>> Stashed changes
 }
 
 function ProgressTrack({ className, ...props }: ProgressPrimitive.Track.Props) {
@@ -28,17 +45,31 @@ function ProgressTrack({ className, ...props }: ProgressPrimitive.Track.Props) {
       data-slot="progress-track"
       {...props}
     />
+<<<<<<< Updated upstream
   );
 }
 
 function ProgressIndicator({ className, ...props }: ProgressPrimitive.Indicator.Props) {
+=======
+  )
+}
+
+function ProgressIndicator({
+  className,
+  ...props
+}: ProgressPrimitive.Indicator.Props) {
+>>>>>>> Stashed changes
   return (
     <ProgressPrimitive.Indicator
       data-slot="progress-indicator"
       className={cn("h-full bg-primary transition-all", className)}
       {...props}
     />
+<<<<<<< Updated upstream
   );
+=======
+  )
+>>>>>>> Stashed changes
 }
 
 function ProgressLabel({ className, ...props }: ProgressPrimitive.Label.Props) {
@@ -48,12 +79,17 @@ function ProgressLabel({ className, ...props }: ProgressPrimitive.Label.Props) {
       data-slot="progress-label"
       {...props}
     />
+<<<<<<< Updated upstream
   );
+=======
+  )
+>>>>>>> Stashed changes
 }
 
 function ProgressValue({ className, ...props }: ProgressPrimitive.Value.Props) {
   return (
     <ProgressPrimitive.Value
+<<<<<<< Updated upstream
       className={cn("ml-auto text-sm text-muted-foreground tabular-nums", className)}
       data-slot="progress-value"
       {...props}
@@ -62,3 +98,22 @@ function ProgressValue({ className, ...props }: ProgressPrimitive.Value.Props) {
 }
 
 export { Progress, ProgressTrack, ProgressIndicator, ProgressLabel, ProgressValue };
+=======
+      className={cn(
+        "ml-auto text-sm text-muted-foreground tabular-nums",
+        className
+      )}
+      data-slot="progress-value"
+      {...props}
+    />
+  )
+}
+
+export {
+  Progress,
+  ProgressTrack,
+  ProgressIndicator,
+  ProgressLabel,
+  ProgressValue,
+}
+>>>>>>> Stashed changes
