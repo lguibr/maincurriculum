@@ -7,7 +7,7 @@
   "scripts": {
     "dev:backend": "npm run dev --workspace=@maincurriculum/backend",
     "dev:frontend": "npm run dev --workspace=@maincurriculum/frontend",
-    "dev": "npx concurrently -c \"cyan,magenta\" -n \"backend,frontend\" \"npm run dev -w @maincurriculum/backend\" \"npm run dev -w @maincurriculum/frontend\"",
+    "dev": "npm run dev -w @maincurriculum/frontend",
     "reset": "npm run db:reset --workspace=@maincurriculum/backend",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",

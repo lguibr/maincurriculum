@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ChevronDown, ChevronUp, CheckCircle2, Circle, Loader2, FolderGit2 } from "lucide-react";
-import { SubagentStreamInterface } from "../store/useStore";
+import { SubagentStreamInterface } from "../store/types";
 
 export interface PipelineNode {
   name: string;
@@ -137,6 +137,8 @@ export function SubagentCard({ subagent }: { subagent: SubagentStreamInterface }
   );
 }
 
+import { Clock } from "lucide-react";
+
 export function RepoProgressTracker({
   targetRepos,
   reposProgress,
@@ -144,72 +146,138 @@ export function RepoProgressTracker({
   globalPhaseOverride,
 }: {
   targetRepos: string[];
-  reposProgress: Record<string, { phase: string; progress: number, currentPhaseProgress: number }>;
+  reposProgress: Record<string, { phase: string; progress: number, currentPhaseProgress: number, timeStarted?: number, etaSeconds?: number }>;
   globalProgressOverride: number;
   globalPhaseOverride?: string;
 }) {
   let completedRepos = 0;
+  let activeEta = 0;
+  let hasValidEta = false;
+
   targetRepos.forEach(repo => {
-    if (reposProgress[repo] && reposProgress[repo].progress === 100) completedRepos++;
+    const rp = reposProgress[repo];
+    if (rp?.progress === 100) completedRepos++;
+    if (rp?.etaSeconds !== undefined && rp.progress > 0 && rp.progress < 100) {
+      activeEta += rp.etaSeconds;
+      hasValidEta = true;
+    }
   });
 
   const isPending = targetRepos.length === 0;
-  
-  // Provide a minimum visible percentage if it's started but not yet mapped
-  let totalPercentage = 0;
-  if (!isPending) {
-     totalPercentage = Math.round((completedRepos / targetRepos.length) * 100);
-  } else {
-     totalPercentage = globalProgressOverride;
-  }
+  let totalPercentage = isPending ? globalProgressOverride : Math.round((completedRepos / targetRepos.length) * 100) || 0;
 
-  // Define pending message dynamically
-  const pendingMessage = globalProgressOverride > 0 && globalPhaseOverride ? globalPhaseOverride : "Waiting for payload...";
+  // Derive global pending message tracking
+  const pendingMessage = globalProgressOverride > 0 && globalPhaseOverride ? globalPhaseOverride : "Waiting for launch sequence...";
+
+  // Format ETA dynamically
+  const formatETA = (seconds: number) => {
+    if (seconds <= 0) return "Done";
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
+  };
 
   return (
-    <div className="flex flex-col w-full gap-4 shrink-0 animate-in fade-in zoom-in-95 duration-500 max-w-4xl mx-auto pb-4">
-      {/* Global Progress Bar */}
-      <div className="flex-1 px-5 py-3 rounded-xl border border-primary/30 bg-card shadow-lg relative overflow-hidden backdrop-blur-md">
-        <div className="absolute top-0 right-0 p-8 bg-primary/10 blur-3xl rounded-full scale-150 transform -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-        <div className="relative flex flex-col gap-2">
-           <div className="flex justify-between items-center text-sm font-bold tracking-wide text-foreground uppercase">
-              <span className="flex items-center gap-2">Overall Ingestion Progress</span>
-              <span className="text-muted-foreground bg-muted/80 px-2 py-0.5 flex items-center rounded text-xs border border-border/50">
-                {isPending ? pendingMessage : `${completedRepos} / ${targetRepos.length} Repositories`}
-              </span>
+    <div className="flex flex-col w-full gap-5 shrink-0 animate-in fade-in zoom-in-95 duration-500 max-w-5xl mx-auto pb-4">
+      {/* Global Progress Dashboard */}
+      <div className="flex-1 px-6 py-5 rounded-2xl border border-white/10 bg-background/50 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] relative overflow-hidden">
+        {/* Glow Effects */}
+        <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/20 blur-3xl rounded-full pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-emerald-500/10 blur-3xl rounded-full pointer-events-none" />
+
+        <div className="relative flex flex-col gap-4">
+           <div className="flex justify-between items-end">
+              <div>
+                <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                  Ingestion Engine 
+                  {!isPending && totalPercentage < 100 && (
+                    <span className="flex h-2 w-2 relative ml-1">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                    </span>
+                  )}
+                </h2>
+                <p className="text-sm tracking-wide text-muted-foreground mt-1">
+                  {isPending ? pendingMessage : `Processing ${completedRepos} of ${targetRepos.length} Repositories`}
+                </p>
+              </div>
+
+              {/* Dynamic ETA Widget */}
+              {!isPending && totalPercentage < 100 && hasValidEta && (
+                <div className="flex items-center gap-2 bg-black/20 dark:bg-black/40 border border-white/10 px-3 py-1.5 rounded-lg shadow-inner">
+                  <Clock className="w-4 h-4 text-primary animate-pulse" />
+                  <span className="text-sm font-mono tracking-wider font-semibold text-primary/90">
+                    est. {formatETA(activeEta)}
+                  </span>
+                </div>
+              )}
            </div>
-           <div className="h-2.5 w-full bg-muted/80 rounded-full overflow-hidden shadow-inner border border-black/30">
-             <div className="h-full bg-primary transition-all duration-500 ease-out shadow-[0_0_10px_rgba(var(--primary),0.8)]" style={{ width: `${totalPercentage}%` }} />
+
+           {/* Global Progress Bar */}
+           <div className="relative h-3 mt-1 w-full bg-black/20 rounded-full overflow-hidden shadow-inner border border-white/5">
+             <div 
+               className="h-full bg-gradient-to-r from-primary/80 to-primary transition-all duration-[800ms] ease-out shadow-[0_0_15px_rgba(var(--primary),0.6)]" 
+               style={{ width: `${totalPercentage}%` }} 
+             />
            </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
+      {/* Grid of Micro Repos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
         {isPending ? (
-          <div className="col-span-full py-4 text-center text-muted-foreground opacity-50 flex items-center justify-center border border-dashed border-border/50 rounded-xl h-[70px]">
-            {globalProgressOverride > 0 ? "Analyzing source systems and determining target repositories..." : "No active repositories. Waiting for launch command..."}
+          <div className="col-span-full py-16 text-center text-muted-foreground/60 flex flex-col items-center justify-center border border-dashed border-white/10 rounded-2xl bg-black/5 backdrop-blur-sm">
+            <Loader2 className="w-8 h-8 mb-3 opacity-20 animate-spin" />
+            <p className="tracking-wide text-sm">{globalProgressOverride > 0 ? "Analyzing source systems and determining target repositories..." : "No active repositories. Waiting for launch command..."}</p>
           </div>
         ) : (
           targetRepos.map((repoName) => {
              const rp = reposProgress[repoName];
              const progress = rp?.progress || 0;
              const phase = rp?.phase || "Waiting...";
+             const eta = rp?.etaSeconds;
              const isComplete = progress === 100;
+             const isRunning = progress > 0 && progress < 100;
 
              return (
-              <div key={repoName} className={`px-4 py-2 rounded-xl border shadow-md relative overflow-hidden backdrop-blur-md transition-all ${isComplete ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-primary/20 bg-card/80'}`}>
-                <div className="relative flex flex-col gap-1.5">
-                   <div className="flex justify-between items-center text-xs font-semibold tracking-wide text-foreground">
-                      <span className="flex items-center gap-1.5 truncate">
-                        <FolderGit2 className={`w-3.5 h-3.5 shrink-0 ${isComplete ? 'text-emerald-500' : 'text-primary'}`} />
-                        <span className={`truncate max-w-[120px] ${isComplete ? 'text-emerald-500' : 'text-primary'}`} title={repoName}>{repoName}</span>
-                      </span>
-                      <span className="text-muted-foreground bg-muted/50 px-2 flex items-center h-5 rounded-md text-[10px] border border-border/50 truncate max-w-[160px]" title={phase}>
-                        {phase.replace("Executing ", "")}
-                      </span>
+              <div 
+                key={repoName} 
+                className={`px-5 py-4 rounded-xl border relative overflow-hidden backdrop-blur-md transition-all duration-300 ${
+                  isComplete ? 'border-emerald-500/20 bg-emerald-500/5 shadow-[0_4px_20px_rgba(16,185,129,0.05)]' 
+                  : isRunning ? 'border-primary/30 bg-background/60 shadow-[0_4px_20px_rgba(var(--primary),0.08)]' 
+                  : 'border-white/5 bg-background/30'
+                }`}
+              >
+                {isRunning && (
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-2xl rounded-full transform translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+                )}
+                
+                <div className="relative flex flex-col gap-3">
+                   <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-2 truncate max-w-[65%]">
+                        <FolderGit2 className={`w-4 h-4 shrink-0 ${isComplete ? 'text-emerald-500' : isRunning ? 'text-primary' : 'text-muted-foreground'}`} />
+                        <span className={`font-semibold text-sm truncate tracking-tight ${isComplete ? 'text-emerald-400' : isRunning ? 'text-primary' : 'text-muted-foreground'}`} title={repoName}>
+                          {repoName}
+                        </span>
+                      </div>
+                      
+                      {isRunning && eta !== undefined && (
+                        <span className="text-[10px] font-mono font-medium text-muted-foreground bg-black/20 px-1.5 py-0.5 rounded border border-white/5">
+                          {formatETA(eta)}
+                        </span>
+                      )}
                    </div>
-                   <div className="h-1.5 w-full bg-muted/80 rounded-full overflow-hidden shadow-inner border border-black/20">
-                     <div className={`h-full transition-all duration-500 ease-out shadow-[0_0_10px_rgba(16,185,129,0.8)] ${isComplete ? 'bg-emerald-500' : 'bg-primary'}`} style={{ width: `${progress}%` }} />
+                   
+                   <div className="flex flex-col gap-1.5 mt-1">
+                     <span className="text-xs text-muted-foreground tracking-wide flex items-center gap-1.5 font-medium truncate" title={phase}>
+                       {isRunning && <Loader2 className="w-3 h-3 animate-spin shrink-0" />}
+                       {phase}
+                     </span>
+                     <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden shadow-inner border border-white/5">
+                       <div 
+                         className={`h-full transition-all duration-[800ms] ease-out ${isComplete ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]' : 'bg-primary shadow-[0_0_10px_rgba(var(--primary),0.8)]'}`} 
+                         style={{ width: `${progress}%` }} 
+                       />
+                     </div>
                    </div>
                 </div>
               </div>

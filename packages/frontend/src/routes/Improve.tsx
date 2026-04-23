@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import { Loader2, FolderGit2, Send, Bot, User, Edit3, Eye, RefreshCw } from "lucide-react";
+import { api } from "../api/client";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -18,8 +19,7 @@ export default function Improve() {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch(`http://${window.location.hostname}:3001/api/profile/latest`)
-      .then((r) => r.json())
+    api.profile.getLatest()
       .then((d) => {
         if (d && d.id) {
           setProfileId(d.id);
@@ -47,11 +47,7 @@ export default function Improve() {
     setCurrentActionMsg("Connecting to Master CV Agent...");
 
     try {
-      const res = await fetch(`http://${window.location.hostname}:3001/api/improver/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: messageText, extendedCv: currentCvContent }),
-      });
+      const res = await api.improver.chat({ message: messageText, extendedCv: currentCvContent });
 
       const aiFullText = "";
 
@@ -258,14 +254,7 @@ export default function Improve() {
                 <button
                   onClick={async () => {
                     if (!profileId) return;
-                    await fetch(
-                      `http://${window.location.hostname}:3001/api/profile/${profileId}/extended`,
-                      {
-                        method: "PUT",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ extended_cv: extendedCv }),
-                      }
-                    );
+                    await api.profile.updateExtended(profileId, { extended_cv: extendedCv });
                     alert("Master CV permanently updated in DB!");
                   }}
                   className="px-4 py-1.5 bg-purple-600/20 text-purple-400 hover:bg-purple-600 hover:text-white rounded text-xs font-bold transition"
