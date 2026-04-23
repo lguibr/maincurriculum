@@ -6,6 +6,7 @@ import Tailor from "./routes/Tailor";
 import Improve from "./routes/Improve";
 import Memory from "./routes/Memory";
 import { useStore } from "./store/useStore";
+import { dbOps } from "./db/indexedDB";
 
 export default function App() {
   const isWizardComplete = useStore((state) => state.isWizardComplete);
@@ -13,14 +14,13 @@ export default function App() {
 
   useEffect(() => {
     if (!isWizardComplete) {
-      fetch(`http://${window.location.hostname}:3001/api/profile/latest`)
-        .then((r) => r.json())
+      dbOps.getProfile("main")
         .then((d) => {
           if (d && d.id) {
             setIsWizardComplete(true);
           }
         })
-        .catch(() => {});
+        .catch((e) => console.error("Could not fetch profile", e));
     }
   }, [isWizardComplete, setIsWizardComplete]);
 

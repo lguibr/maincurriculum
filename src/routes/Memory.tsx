@@ -14,6 +14,7 @@ import {
 import { useStore } from "../store/useStore";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReactMarkdown from "react-markdown";
+import { dbOps } from "../db/indexedDB";
 
 export default function Memory() {
   const [memoryJson, setMemoryJson] = useState("{}");
@@ -24,11 +25,10 @@ export default function Memory() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch(`http://${window.location.hostname}:3001/api/profile/latest`)
-      .then((r) => r.json())
+    dbOps.getProfile("main")
       .then((d) => {
         if (d && d.id) {
-          setProfileId(d.id);
+          setProfileId(d.id as any);
           setMemoryJson(JSON.stringify(d.demographics_json || {}, null, 2));
           setBaseCv(d.base_cv || "");
           setExtendedCv(d.extended_cv || "");
@@ -48,11 +48,12 @@ export default function Memory() {
       // Validate JSON
       const parsed = JSON.parse(memoryJson);
 
-      await fetch(`http://localhost:3001/api/profile/${profileId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ demographics_json: parsed, base_cv: baseCv }),
-      });
+      const prof = await dbOps.getProfile("main");
+      if (prof) {
+        prof.demographics_json = parsed;
+        prof.base_cv = baseCv;
+        await dbOps.saveProfile(prof);
+      }
       alert("Overrides saved to vector index!");
     } catch (e) {
       alert("Invalid JSON schema exactly inside the editor.");

@@ -143,12 +143,12 @@ export function EntityDashboard() {
               >
                 <div className="flex justify-between items-start mb-2">
                   <h5 className="font-bold text-base text-foreground flex items-center">
-                    <ChevronRight className="w-4 h-4 text-primary mr-1" /> {proj.name}
+                    <ChevronRight className="w-4 h-4 text-primary mr-1" /> {proj.repo_name}
                   </h5>
                 </div>
-                {proj.description && (
+                {proj.raw_text && (
                   <p className="text-xs text-muted-foreground leading-relaxed mt-1 mb-3">
-                    {proj.description}
+                    {proj.raw_text}
                   </p>
                 )}
                 {proj.skills && proj.skills.length > 0 && (

@@ -30,6 +30,7 @@ export interface AppState {
   activeNodes: string[];
   currentPhase: string;
   currentQuestion: string | null;
+  interviewHistory: { q: string; a: string }[];
   isWizardComplete: boolean;
   langgraphEvents: Record<string, unknown>[];
   langgraphValues: Record<string, unknown>;

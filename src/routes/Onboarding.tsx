@@ -10,7 +10,7 @@ import {
   FileCode,
   AlertCircle,
   Copy,
-  Check,
+  Check, ChevronRight,
   ArrowLeft,
   Search,
   BookOpen,
@@ -112,28 +112,11 @@ export default function Onboarding() {
       
       if (Array.isArray(repoData)) {
         const mapped = repoData.map((r: any) => ({
-          name: r.name,
+          name: r.full_name || r.name,
           url: r.html_url,
           description: r.description,
           updatedAt: r.updated_at
         }));
-        
-        // --- Inject lguibr/json-evaluation ---
-        try {
-          const lguibrRes = await fetch(`https://api.github.com/repos/lguibr/json-evaluation`, { headers });
-          if (lguibrRes.ok) {
-            const lguibrData = await lguibrRes.json();
-            const exists = mapped.some((m: any) => m.url === lguibrData.html_url);
-            if (!exists) {
-              mapped.push({
-                name: lguibrData.full_name || lguibrData.name,
-                url: lguibrData.html_url,
-                description: lguibrData.description,
-                updatedAt: lguibrData.updated_at
-              });
-            }
-          }
-        } catch(e) {}
         
         setFetchedRepos(mapped);
       } else {
@@ -422,12 +405,31 @@ export default function Onboarding() {
                   
                   {/* Right Column: Interactive Interview Planner */}
                   <div className="flex-1 p-6 flex flex-col justify-start min-h-0 bg-background/50 overflow-hidden relative">
-                    {!store.currentQuestion ? (
+                    {store.isWizardComplete ? (
+                      <div className="flex flex-col h-full items-center justify-center text-muted-foreground p-8 animate-in fade-in zoom-in duration-500">
+                        <div className="w-20 h-20 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mb-6 ring-4 ring-green-500/30">
+                          <Check className="w-10 h-10" />
+                        </div>
+                        <h3 className="text-2xl text-primary font-bold mb-2">Interview Completed!</h3>
+                        <p className="text-sm opacity-80 mt-2 max-w-[400px] text-center mx-auto mb-8">
+                          Your Extended CV has been generated and seamlessly injected with the precise technical depth extracted from your answers.
+                        </p>
+                        <Link to="/memory">
+                          <Button className="h-12 px-8 text-base font-bold shadow-[0_0_20px_rgba(var(--primary),0.3)] hover:shadow-[0_0_30px_rgba(var(--primary),0.5)] transition-all">
+                            Proceed to System Dashboard <ChevronRight className="ml-2 w-5 h-5" />
+                          </Button>
+                        </Link>
+                      </div>
+                    ) : !store.currentQuestion ? (
                       <div className="flex flex-col h-full items-center justify-center text-muted-foreground p-8">
                        <Loader2 className="w-16 h-16 text-primary animate-spin mb-6" />
                        <h3 className="text-xl text-primary font-bold mb-2">AI Architect Analyzing Alignment...</h3>
                        <p className="text-sm opacity-60 mt-2 max-w-[300px] text-center mx-auto">
-                         Preparing tailored technical deep-dive questions based on your CV...
+                         {store.currentPhase.includes("Interview") || store.currentPhase.includes("Generating Final CV") 
+                            ? store.currentPhase 
+                            : "Preparing tailored technical deep-dive questions based on your CV..."}
+                         <br />
+                         {"This may take up to 20-30 seconds depending on context scale."}
                        </p>
                     </div>
                   ) : (

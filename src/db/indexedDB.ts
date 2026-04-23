@@ -6,6 +6,7 @@ export interface UserProfile {
   base_cv: string;
   extended_cv: string;
   demographics_json: any;
+  interview_history?: {q: string, a: string}[];
   created_at: number;
 }
 

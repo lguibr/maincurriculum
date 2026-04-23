@@ -65,10 +65,16 @@ export default function Dashboard() {
                   "WARNING: This will permanently wipe all agents, CV versions, and ingested vector memory! Proceed?"
                 )
               ) {
-                await fetch(`http://${window.location.hostname}:3001/api/reset`, {
-                  method: "DELETE",
-                });
-                window.location.href = "/onboarding";
+                // Erase local storage AI tokens/keys
+                localStorage.clear();
+                // Delete IndexedDB
+                const req = indexedDB.deleteDatabase("CurriculumDB");
+                req.onsuccess = () => {
+                   window.location.href = "/onboarding";
+                };
+                req.onerror = () => {
+                   window.location.href = "/onboarding";
+                };
               }
             }}
             className="flex items-center px-3 py-2 rounded-lg transition-all hover:bg-red-500/10 text-red-400 font-semibold text-sm"

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { Loader2, Briefcase, FileSignature, MessageSquare } from "lucide-react";
+import { dbOps } from "../db/indexedDB";
+import { GeminiInference } from "../ai/GeminiInference";
 
 export default function Tailor() {
   const [jobDesc, setJobDesc] = useState("");
@@ -11,26 +13,38 @@ export default function Tailor() {
   const [profileId, setProfileId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch(`http://${window.location.hostname}:3001/api/profile/latest`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d && d.id) setProfileId(d.id);
-      })
-      .catch(console.error);
+    dbOps.getProfile("main").then(prof => {
+       if (prof) setProfileId("main" as any);
+    }).catch(console.error);
   }, []);
 
   const handleTailor = async () => {
-    if (!profileId || !jobDesc) return;
+    if (!jobDesc) return;
     setLoading(true);
     setOutputs({ tailoredCv: "", coverLetter: "", employerAnswers: "" });
     try {
-      const res = await fetch(`http://${window.location.hostname}:3001/api/tailor`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileId, jobDescription: jobDesc, employerQuestions }),
-      });
-      const data = await res.json();
-      setOutputs(data);
+      const prof = await dbOps.getProfile("main");
+      if (!prof) throw new Error("Profile missing");
+
+      // Generate context block
+      const context = `
+Candidate CV:
+${prof.extended_cv || prof.base_cv}
+
+Candidate Demographics & Identity (Use logically): 
+${JSON.stringify(prof.demographics_json)}
+
+Target Job Description:
+${jobDesc}
+`;
+
+      const [cvRes, coverRes, qsRes] = await Promise.all([
+          GeminiInference.generate(`Rewrite the CV specifically to perfectly match the target job description. Do not hallucinate experiences, just reframe existing ones to match the keywords and tone.\n${context}`, "text", "gemini-pro-latest"),
+          GeminiInference.generate(`Write an aggressively impressive Cover Letter for this job description based on the candidate's CV.\n${context}`, "text", "gemini-pro-latest"),
+          employerQuestions ? GeminiInference.generate(`Answer the following employer questions using the candidate's perspective securely: ${employerQuestions}\n\nContext:\n${context}`, "text", "gemini-pro-latest") : Promise.resolve("")
+      ]);
+      
+      setOutputs({ tailoredCv: cvRes, coverLetter: coverRes, employerAnswers: qsRes });
     } catch (e) {
       console.error(e);
     }
