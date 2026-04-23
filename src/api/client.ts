@@ -7,7 +7,7 @@ import {
   UpdateProfileRequest,
   UpdateExtendedProfileRequest,
   ImproveRequest
-} from "@maincurriculum/shared";
+} from "@/shared";
 
 const API_BASE = `http://${window?.location?.hostname}:3001/api`;
 

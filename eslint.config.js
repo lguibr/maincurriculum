@@ -24,7 +24,7 @@ export default [
     },
   },
   {
-    files: ["packages/frontend/**/*.{ts,tsx}"],
+    files: ["src/**/*.{ts,tsx}", "*.{ts,tsx}"],
     languageOptions: {
       ecmaVersion: 2020,
       globals: { ...globals.browser },
@@ -40,17 +40,5 @@ export default [
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
     },
-  },
-  {
-    files: ["packages/backend/**/*.ts"],
-    languageOptions: {
-      ecmaVersion: 2022,
-      globals: { ...globals.node },
-    },
-    rules: {
-      "prettier/prettier": "warn",
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
-    },
-  },
+  }
 ];
