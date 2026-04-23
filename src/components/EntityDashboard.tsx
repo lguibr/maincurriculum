@@ -1,19 +1,22 @@
-import React, { useEffect } from "react";
-import { useStore } from "../store/useStore";
-import { X, Briefcase, Code, Database, Library, Calendar, ChevronRight } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useEntityStore } from "../store/useEntityStore";
+import { fetchEntities, deleteEntity } from "../actions/pipelineActions";
+import { X, Briefcase, Code, Database, Library, Calendar, ChevronRight, GraduationCap } from "lucide-react";
 
 export function EntityDashboard() {
-  const store = useStore();
+  const entities = useEntityStore((s) => s.entities);
+  const [activeSkill, setActiveSkill] = useState<string | null>(null);
 
   useEffect(() => {
-    store.fetchEntities();
+    fetchEntities();
   }, []);
 
-  const experiences = store.entities?.experiences || [];
-  const skills = store.entities?.skills || [];
-  const projects = store.entities?.projects || [];
+  const experiences = entities?.experiences || [];
+  const skills = entities?.skills || [];
+  const projects = entities?.projects || [];
+  const educations = entities?.educations || [];
 
-  if (!store.entities) {
+  if (!entities) {
     return (
       <div className="p-4 text-sm text-muted-foreground animate-pulse">
         Loading architectural context...
@@ -48,14 +51,18 @@ export function EntityDashboard() {
             {skills.map((skill) => (
               <div
                 key={skill.id}
-                className="group relative flex items-center bg-card border border-border hover:border-primary/50 shadow-sm rounded-full pl-3 pr-1 py-1 transition-all"
+                onClick={() => setActiveSkill(activeSkill === skill.name ? null : skill.name)}
+                className={`group relative flex items-center bg-card border hover:border-primary shadow-sm rounded-full pl-3 pr-1 py-1 transition-all cursor-pointer ${activeSkill === skill.name ? "border-primary bg-primary/20 ring-2 ring-primary/50" : "border-border"}`}
               >
                 <span className="text-sm font-medium mr-2">{skill.name}</span>
                 <span className="text-[10px] text-muted-foreground mr-2 capitalize">
                   ({skill.type})
                 </span>
                 <button
-                  onClick={() => store.deleteEntity("skill", skill.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteEntity("skill", skill.id);
+                  }}
                   className="bg-destructive/10 hover:bg-destructive/80 text-destructive hover:text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all"
                 >
                   <X className="w-3 h-3" />
@@ -79,13 +86,15 @@ export function EntityDashboard() {
           </h4>
 
           <div className="space-y-4">
-            {experiences.map((exp) => (
+            {experiences.map((exp) => {
+              const hasActiveSkill = activeSkill ? exp.skills?.some((s: any) => s.name === activeSkill) : true;
+              return (
               <div
                 key={exp.id}
-                className="relative p-5 rounded-xl border bg-card/50 hover:bg-card border-border/50 transition-colors group"
+                className={`relative p-5 rounded-xl border bg-card/50 hover:bg-card border-border/50 transition-colors group ${!hasActiveSkill ? 'opacity-30' : ''}`}
               >
                 <button
-                  onClick={() => store.deleteEntity("experience", exp.id)}
+                  onClick={() => deleteEntity("experience", exp.id)}
                   className="absolute top-4 right-4 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
                 >
                   <X className="w-4 h-4" />
@@ -108,7 +117,7 @@ export function EntityDashboard() {
                     {exp.skills.map((s: any) => (
                       <span
                         key={s.id}
-                        className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-md border border-primary/20"
+                        className={`text-[10px] px-2 py-0.5 rounded-md border transition-colors ${activeSkill === s.name ? "bg-primary text-white border-primary" : "bg-primary/10 text-primary border-primary/20"}`}
                       >
                         {s.name}
                       </span>
@@ -116,7 +125,7 @@ export function EntityDashboard() {
                   </div>
                 )}
               </div>
-            ))}
+            )})}
             {experiences.length === 0 && (
               <span className="text-xs text-muted-foreground italic">
                 No experiences extracted yet.
@@ -136,12 +145,20 @@ export function EntityDashboard() {
           </h4>
 
           <div className="space-y-4">
-            {projects.map((proj) => (
+            {projects.map((proj) => {
+              const hasActiveSkill = activeSkill ? proj.skills?.some((s: any) => s.name === activeSkill) : true;
+              return (
               <div
                 key={proj.id}
-                className="relative p-5 rounded-xl border bg-card/30 border-border/50 transition-colors"
+                className={`relative p-5 rounded-xl border bg-card/30 border-border/50 transition-colors ${!hasActiveSkill ? 'opacity-30' : ''}`}
               >
-                <div className="flex justify-between items-start mb-2">
+                <button
+                  onClick={() => deleteEntity("project", proj.id)}
+                  className="absolute top-4 right-4 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <div className="flex justify-between items-start mb-2 pr-6">
                   <h5 className="font-bold text-base text-foreground flex items-center">
                     <ChevronRight className="w-4 h-4 text-primary mr-1" /> {proj.repo_name}
                   </h5>
@@ -156,7 +173,7 @@ export function EntityDashboard() {
                     {proj.skills.map((s: any) => (
                       <span
                         key={s.id}
-                        className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-md border border-primary/20"
+                        className={`text-[10px] px-2 py-0.5 rounded-md border transition-colors ${activeSkill === s.name ? "bg-primary text-white border-primary" : "bg-primary/10 text-primary border-primary/20"}`}
                       >
                         {s.name}
                       </span>
@@ -164,10 +181,55 @@ export function EntityDashboard() {
                   </div>
                 )}
               </div>
-            ))}
+            )})}
             {projects.length === 0 && (
               <span className="text-xs text-muted-foreground italic">
                 No relevant projects extracted.
+              </span>
+            )}
+          </div>
+        </section>
+
+        {/* Education Section */}
+        <section>
+          <h4 className="font-bold text-sm text-foreground/80 flex items-center mb-4 uppercase tracking-wider">
+            <GraduationCap className="w-4 h-4 mr-2" />
+            Academic Education
+            <span className="ml-3 bg-primary/20 text-primary px-2 py-0.5 rounded-full text-[10px]">
+              {educations.length} mapped
+            </span>
+          </h4>
+
+          <div className="space-y-4">
+            {educations.map((edu) => (
+              <div
+                key={edu.id}
+                className="relative p-5 rounded-xl border bg-card/50 hover:bg-card border-border/50 transition-colors group"
+              >
+                <button
+                  onClick={() => deleteEntity("education", edu.id)}
+                  className="absolute top-4 right-4 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <div className="flex justify-between items-start mb-2 pr-6">
+                  <div>
+                    <h5 className="font-bold text-base text-foreground">{edu.degree}</h5>
+                    <p className="text-sm text-primary font-medium">{edu.school}</p>
+                  </div>
+                  <div className="text-xs text-muted-foreground flex items-center whitespace-nowrap bg-muted/40 px-2 py-1 rounded-md">
+                    <Calendar className="w-3 h-3 mr-1.5" />
+                    {edu.start_date} - {edu.end_date}
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed mt-3 border-l-2 border-primary/30 pl-3">
+                  {edu.description}
+                </p>
+              </div>
+            ))}
+            {educations.length === 0 && (
+              <span className="text-xs text-muted-foreground italic">
+                No education extracted yet.
               </span>
             )}
           </div>

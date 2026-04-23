@@ -22,6 +22,8 @@ export interface AppState {
   setCvViewMode: (mode: "raw" | "preview") => void;
   cloudTier: "smart" | "balanced" | "widely";
   setCloudTier: (tier: "smart" | "balanced" | "widely") => void;
+  extendedCv: string;
+  setExtendedCv: (val: string) => void;
 
   // Pipeline State
   isRunning: boolean;
@@ -36,9 +38,18 @@ export interface AppState {
   langgraphValues: Record<string, unknown>;
   subagents: Record<string, SubagentStreamInterface>;
   targetRepos: string[];
-  reposProgress: Record<string, { phase: string; progress: number, currentPhaseProgress: number, timeStarted?: number, etaSeconds?: number }>;
+  reposProgress: Record<
+    string,
+    {
+      phase: string;
+      progress: number;
+      currentPhaseProgress: number;
+      timeStarted?: number;
+      etaSeconds?: number;
+    }
+  >;
   knowledgeBaseTree: string[];
-  entities: null | { skills: any[], experiences: any[], projects: any[] };
+  entities: null | { skills: any[]; experiences: any[]; projects: any[] };
 
   // Actions
   setupSseHandler: () => void;

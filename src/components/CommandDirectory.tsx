@@ -1,8 +1,8 @@
 import { Archive, Database, FileText, FolderTree, Terminal } from "lucide-react";
-import { useStore } from "../store/useStore";
+import { useEntityStore } from "../store/useEntityStore";
 
 export function CommandDirectory() {
-  const { knowledgeBaseTree, reposProgress } = useStore();
+  const { knowledgeBaseTree, reposProgress } = useEntityStore();
 
   return (
     <div className="h-full flex flex-col bg-[#0f141b] border-r border-[#171c24] text-[#dee2ee] overflow-hidden">

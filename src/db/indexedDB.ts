@@ -6,7 +6,7 @@ export interface UserProfile {
   base_cv: string;
   extended_cv: string;
   demographics_json: any;
-  interview_history?: {q: string, a: string}[];
+  interview_history?: { q: string; a: string }[];
   created_at: number;
 }
 
@@ -26,11 +26,21 @@ export interface Experience {
   skills: string[]; // skill IDs
 }
 
+export interface Education {
+  id: string;
+  school: string;
+  degree: string;
+  start_date: string;
+  end_date: string;
+  description: string;
+}
+
 export interface Project {
   id: string;
   repo_name: string;
   raw_text: string;
   skills: string[]; // skill IDs
+  last_synced_at?: number; // timestamp for delta sync
 }
 
 export interface ProjectChunkEmbedding {
@@ -53,6 +63,10 @@ interface CurriculumDB extends DBSchema {
   experiences: {
     key: string;
     value: Experience;
+  };
+  educations: {
+    key: string;
+    value: Education;
   };
   projects: {
     key: string;
@@ -77,6 +91,8 @@ export const initDB = () => {
           db.createObjectStore("skills", { keyPath: "id" });
         if (!db.objectStoreNames.contains("experiences"))
           db.createObjectStore("experiences", { keyPath: "id" });
+        if (!db.objectStoreNames.contains("educations"))
+          db.createObjectStore("educations", { keyPath: "id" });
         if (!db.objectStoreNames.contains("projects"))
           db.createObjectStore("projects", { keyPath: "id" });
         if (!db.objectStoreNames.contains("embeddings")) {
@@ -119,6 +135,16 @@ export const dbOps = {
     return db.getAll("experiences");
   },
 
+  async deleteExperience(id: string) {
+    const db = await initDB();
+    await db.delete("experiences", id);
+  },
+
+  async deleteSkill(id: string) {
+    const db = await initDB();
+    await db.delete("skills", id);
+  },
+
   async saveProject(proj: Project) {
     const db = await initDB();
     await db.put("projects", proj);
@@ -126,6 +152,23 @@ export const dbOps = {
   async getProjects() {
     const db = await initDB();
     return db.getAll("projects");
+  },
+  async deleteProject(id: string) {
+    const db = await initDB();
+    await db.delete("projects", id);
+  },
+
+  async saveEducation(edu: Education) {
+    const db = await initDB();
+    await db.put("educations", edu);
+  },
+  async getEducations() {
+    const db = await initDB();
+    return db.getAll("educations");
+  },
+  async deleteEducation(id: string) {
+    const db = await initDB();
+    await db.delete("educations", id);
   },
 
   async saveEmbedding(emb: ProjectChunkEmbedding) {

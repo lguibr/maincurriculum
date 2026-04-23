@@ -70,10 +70,10 @@ export default function Dashboard() {
                 // Delete IndexedDB
                 const req = indexedDB.deleteDatabase("CurriculumDB");
                 req.onsuccess = () => {
-                   window.location.href = "/onboarding";
+                  window.location.href = "/onboarding";
                 };
                 req.onerror = () => {
-                   window.location.href = "/onboarding";
+                  window.location.href = "/onboarding";
                 };
               }
             }}

@@ -3,7 +3,7 @@ import ReactMarkdown from "react-markdown";
 import { Loader2, FolderGit2, Send, Bot, User, Edit3, Eye, RefreshCw } from "lucide-react";
 import { dbOps } from "../db/indexedDB";
 import { GeminiInference } from "../ai/GeminiInference";
-import { useStore } from "../store/useStore";
+import { useProfileStore } from "../store/useProfileStore";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -21,7 +21,8 @@ export default function Improve() {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    dbOps.getProfile("main")
+    dbOps
+      .getProfile("main")
       .then((d) => {
         if (d && d.id) {
           setProfileId(d.id);
@@ -35,39 +36,38 @@ export default function Improve() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, currentActionMsg]);
 
-  const store = useStore();
+  const { cloudTier } = useProfileStore();
 
   const executeAgentCloud = async (messageText: string = "", currentCvContent: string = "") => {
     setIsRunning(true);
     setCurrentActionMsg("Connecting to Gemini 3...");
-    
+
     setMessages((prev) => [...prev, { role: "assistant", content: "..." }]);
-    
+
     try {
       setCurrentActionMsg("Drafting new CV...");
-      
+
       const prompt = `You are an expert tech recruiter and CV Improver. The user asks: "${messageText}".
 Here is the current CV draft. Rewrite and improve it based on their instructions, outputting ONLY the new CV draft. Do not add conversational text.
 -- CV START --
 ${currentCvContent}
 -- CV END --`;
-      
+
       let improveModel = "gemini-pro-latest";
-      if (store.cloudTier === "smart") improveModel = "gemini-pro-latest";
-      if (store.cloudTier === "balanced") improveModel = "gemini-flash-latest";
-      if (store.cloudTier === "widely") improveModel = "gemini-pro-latest";
-      
+      if (cloudTier === "smart") improveModel = "gemini-pro-latest";
+      if (cloudTier === "balanced") improveModel = "gemini-flash-latest";
+      if (cloudTier === "widely") improveModel = "gemini-pro-latest";
+
       const response = await GeminiInference.generate(prompt, "text", improveModel);
-      
+
       setMessages((prev) => {
-         const copy = [...prev];
-         copy[copy.length - 1].content = "✅ Generation Complete.";
-         return copy;
+        const copy = [...prev];
+        copy[copy.length - 1].content = "✅ Generation Complete.";
+        return copy;
       });
-      
+
       setExtendedCv(response);
       setCurrentActionMsg("");
-
     } catch (e: any) {
       console.error(e);
       setCurrentActionMsg("Error: " + e.message);
@@ -91,7 +91,9 @@ ${currentCvContent}
           <FolderGit2 className="w-5 h-5" /> Master CV Agent Canvas
         </div>
         <button
-          onClick={() => executeAgentCloud("Review my entire CV layout again. Improve vocabulary.", extendedCv)}
+          onClick={() =>
+            executeAgentCloud("Review my entire CV layout again. Improve vocabulary.", extendedCv)
+          }
           disabled={isRunning || !profileId}
           className="px-4 py-2 bg-blue-600/20 text-blue-400 hover:bg-blue-600/40 disabled:opacity-50 font-semibold rounded shadow transition-all flex items-center justify-center gap-2 text-sm"
         >

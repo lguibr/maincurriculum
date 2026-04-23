@@ -11,7 +11,6 @@ import {
   Code2,
   User as UserIcon,
 } from "lucide-react";
-import { useStore } from "../store/useStore";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReactMarkdown from "react-markdown";
 import { dbOps } from "../db/indexedDB";
@@ -25,7 +24,8 @@ export default function Memory() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    dbOps.getProfile("main")
+    dbOps
+      .getProfile("main")
       .then((d) => {
         if (d && d.id) {
           setProfileId(d.id as any);

@@ -13,9 +13,12 @@ export default function Tailor() {
   const [profileId, setProfileId] = useState<number | null>(null);
 
   useEffect(() => {
-    dbOps.getProfile("main").then(prof => {
-       if (prof) setProfileId("main" as any);
-    }).catch(console.error);
+    dbOps
+      .getProfile("main")
+      .then((prof) => {
+        if (prof) setProfileId("main" as any);
+      })
+      .catch(console.error);
   }, []);
 
   const handleTailor = async () => {
@@ -39,11 +42,25 @@ ${jobDesc}
 `;
 
       const [cvRes, coverRes, qsRes] = await Promise.all([
-          GeminiInference.generate(`Rewrite the CV specifically to perfectly match the target job description. Do not hallucinate experiences, just reframe existing ones to match the keywords and tone.\n${context}`, "text", "gemini-pro-latest"),
-          GeminiInference.generate(`Write an aggressively impressive Cover Letter for this job description based on the candidate's CV.\n${context}`, "text", "gemini-pro-latest"),
-          employerQuestions ? GeminiInference.generate(`Answer the following employer questions using the candidate's perspective securely: ${employerQuestions}\n\nContext:\n${context}`, "text", "gemini-pro-latest") : Promise.resolve("")
+        GeminiInference.generate(
+          `Rewrite the CV specifically to perfectly match the target job description. Do not hallucinate experiences, just reframe existing ones to match the keywords and tone.\n${context}`,
+          "text",
+          "gemini-pro-latest"
+        ),
+        GeminiInference.generate(
+          `Write an aggressively impressive Cover Letter for this job description based on the candidate's CV.\n${context}`,
+          "text",
+          "gemini-pro-latest"
+        ),
+        employerQuestions
+          ? GeminiInference.generate(
+              `Answer the following employer questions using the candidate's perspective securely: ${employerQuestions}\n\nContext:\n${context}`,
+              "text",
+              "gemini-pro-latest"
+            )
+          : Promise.resolve(""),
       ]);
-      
+
       setOutputs({ tailoredCv: cvRes, coverLetter: coverRes, employerAnswers: qsRes });
     } catch (e) {
       console.error(e);

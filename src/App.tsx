@@ -5,18 +5,19 @@ import Dashboard from "./routes/Dashboard";
 import Tailor from "./routes/Tailor";
 import Improve from "./routes/Improve";
 import Memory from "./routes/Memory";
-import { useStore } from "./store/useStore";
+import { usePipelineStore } from "./store/usePipelineStore";
 import { dbOps } from "./db/indexedDB";
 
 export default function App() {
-  const isWizardComplete = useStore((state) => state.isWizardComplete);
-  const setIsWizardComplete = useStore((state) => state.setIsWizardComplete);
+  const isWizardComplete = usePipelineStore((state) => state.isWizardComplete);
+  const setIsWizardComplete = usePipelineStore((state) => state.setIsWizardComplete);
 
   useEffect(() => {
     if (!isWizardComplete) {
-      dbOps.getProfile("main")
+      dbOps
+        .getProfile("main")
         .then((d) => {
-          if (d && d.id) {
+          if (d && d.extended_cv && d.extended_cv.length > 50) {
             setIsWizardComplete(true);
           }
         })
