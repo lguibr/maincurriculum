@@ -120,7 +120,7 @@ export const useStore = create<AppState>((set, get) => ({
 
                  try {
                      const skillsPrompt = `List all major technical skills, languages, libraries, and frameworks used in this codebase. Output STRICT JSON: {"skills": [{"id": "uuid", "name": "React"}]}.\nCodebase:\n${embText}`;
-                     const result = await GeminiInference.generate(skillsPrompt, "json", "gemini-3.0-flash-latest");
+                     const result = await GeminiInference.generate(skillsPrompt, "json", "gemini-flash-latest");
                      const jsonMatch = result.match(/\{[\s\S]*\}/);
                      if (jsonMatch) {
                          const parsed = JSON.parse(jsonMatch[0]);
@@ -169,11 +169,11 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const parsePrompt = `Extract ALL technical skills and work experiences from the following CV. Do not limit the count. Output as strict JSON formatted like: {"skills": [{"id": "uuid", "name": "Python", "type": "Language"}], "experiences": [{"id": "uuid", "company":"X", "role":"Dev", "start_date":"2020", "end_date":"2021", "description":"Did stuff", "skills":[]}]}.\nCV:\n${cvText}`;
       
-      let extractModel = "gemini-3.0-flash-latest"; // default
+      let extractModel = "gemini-flash-latest"; // default
       const { cloudTier } = get();
-      if (cloudTier === "smart") extractModel = "gemini-3.0-flash-latest";
-      if (cloudTier === "balanced") extractModel = "gemini-3.0-flash-lite-latest";
-      if (cloudTier === "widely") extractModel = "gemini-3.0-flash-lite-latest";
+      if (cloudTier === "smart") extractModel = "gemini-flash-latest";
+      if (cloudTier === "balanced") extractModel = "gemini-flash-lite-latest";
+      if (cloudTier === "widely") extractModel = "gemini-flash-lite-latest";
 
       const llmResult = await GeminiInference.generate(parsePrompt, "json", extractModel);
       
@@ -214,10 +214,10 @@ export const useStore = create<AppState>((set, get) => ({
     set({ currentQuestion: null, interviewHistory: newHistory, currentPhase: `Interview ${newHistory.length + 1}/3` });
 
     try {
-        let extractModel = "gemini-3.0-flash-latest"; 
-        if (state.cloudTier === "smart") extractModel = "gemini-3.0-flash-latest";
-        if (state.cloudTier === "balanced") extractModel = "gemini-3.0-flash-lite-latest";
-        if (state.cloudTier === "widely") extractModel = "gemini-3.0-flash-lite-latest";
+        let extractModel = "gemini-flash-latest"; 
+        if (state.cloudTier === "smart") extractModel = "gemini-flash-latest";
+        if (state.cloudTier === "balanced") extractModel = "gemini-flash-lite-latest";
+        if (state.cloudTier === "widely") extractModel = "gemini-flash-lite-latest";
 
         if (newHistory.length < 3) {
             // Generate next question
@@ -250,10 +250,10 @@ export const useStore = create<AppState>((set, get) => ({
         const { cloudTier } = get();
         const prompt = `Improve the following CV using context: ${message}\nCV:\n${extendedCv}`;
         
-        let improveModel = "gemini-3.0-pro-latest";
-        if (cloudTier === "smart") improveModel = "gemini-3.0-pro-latest";
-        if (cloudTier === "balanced") improveModel = "gemini-3.0-flash-latest";
-        if (cloudTier === "widely") improveModel = "gemini-3.0-pro-latest";
+        let improveModel = "gemini-pro-latest";
+        if (cloudTier === "smart") improveModel = "gemini-pro-latest";
+        if (cloudTier === "balanced") improveModel = "gemini-flash-latest";
+        if (cloudTier === "widely") improveModel = "gemini-pro-latest";
         
         const newCv = await GeminiInference.generate(prompt, "text", improveModel);
           
