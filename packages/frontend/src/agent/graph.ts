@@ -15,13 +15,13 @@ export const AgentState = Annotation.Root({
   draft_cover_letter: Annotation<string>(),
   company_questions: Annotation<string>(),
   draft_answers: Annotation<string>(),
-  
+
   critique_truth: Annotation<string>(),
   critique_star: Annotation<string>(),
   critique_verbosity: Annotation<string>(),
   critique_tone: Annotation<string>(),
   critique_feedback: Annotation<string>(),
-  
+
   next_action: Annotation<string>(),
   iterations: Annotation<number>(),
 });
@@ -30,9 +30,9 @@ export type AgentStateType = typeof AgentState.State;
 
 async function analyzeJD(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
-  
+
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3-flash-preview",
+    model: "gemini-flash-lite-latest",
     contents: `Analyze the following Job Description and extract the core technologies, soft skills, and vibe/tone.
 Job Description:
 ${state.job_description}
@@ -50,7 +50,7 @@ Output ONLY valid JSON.`,
       },
     },
   });
-  
+
   let fullText = "";
   for await (const chunk of stream) {
     fullText += chunk.text;
@@ -64,11 +64,11 @@ Output ONLY valid JSON.`,
 async function profileMatch(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3-flash-preview",
+    model: "gemini-flash-lite-latest",
     contents: `Match the job description analysis against the base CV and GitHub portfolio. Select up to 3 most relevant GitHub projects.
 JD Analysis: ${JSON.stringify(state.jd_analysis)}
 Base CV: ${state.base_cv}
-GitHub Portfolio: ${JSON.stringify(state.github_portfolio.map(p => ({ name: p.name, description: p.description, language: p.language })))}
+GitHub Portfolio: ${JSON.stringify(state.github_portfolio.map((p) => ({ name: p.name, description: p.description, language: p.language })))}
 
 Output ONLY valid JSON.`,
     config: {
@@ -81,7 +81,7 @@ Output ONLY valid JSON.`,
       },
     },
   });
-  
+
   let fullText = "";
   for await (const chunk of stream) {
     fullText += chunk.text;
@@ -97,7 +97,7 @@ async function fetchRepoContext(state: AgentStateType, config?: RunnableConfig) 
   const repo_deep_dives: Record<string, string> = { ...(state.repo_deep_dives || {}) };
   for (const repoName of state.selected_projects) {
     if (!repo_deep_dives[repoName]) {
-      const repo = state.github_portfolio.find(p => p.name === repoName);
+      const repo = state.github_portfolio.find((p) => p.name === repoName);
       if (repo && repo.full_name) {
         try {
           if (onChunk) onChunk("Fetch_Repo_Context", `\nFetching context for ${repo.full_name}...`);
@@ -119,20 +119,24 @@ async function fetchRepoContext(state: AgentStateType, config?: RunnableConfig) 
 
 async function draftDocs(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
-  const questionsInput = state.company_questions ? `Company Application Questions: ${state.company_questions}` : "";
-  const questionsPrompt = state.company_questions ? " and 'draft_answers' (markdown format resolving the questions)" : "";
+  const questionsInput = state.company_questions
+    ? `Company Application Questions: ${state.company_questions}`
+    : "";
+  const questionsPrompt = state.company_questions
+    ? " and 'draft_answers' (markdown format resolving the questions)"
+    : "";
 
   const properties: Record<string, any> = {
     draft_cv: { type: Type.STRING },
     draft_cover_letter: { type: Type.STRING },
   };
-  
+
   if (state.company_questions) {
     properties.draft_answers = { type: Type.STRING };
   }
 
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3-flash-preview",
+    model: "gemini-flash-lite-latest",
     contents: `Draft a highly tailored CV and Cover Letter based on the following inputs.
 JD Analysis: ${JSON.stringify(state.jd_analysis)}
 Base CV: ${state.base_cv}
@@ -149,7 +153,7 @@ Output a JSON object with 'draft_cv' (markdown format) and 'draft_cover_letter' 
       },
     },
   });
-  
+
   let fullText = "";
   for await (const chunk of stream) {
     fullText += chunk.text;
@@ -157,13 +161,17 @@ Output a JSON object with 'draft_cv' (markdown format) and 'draft_cover_letter' 
   }
 
   const result = JSON.parse(fullText || "{}");
-  return { 
-    draft_cv: result.draft_cv || "", 
+  return {
+    draft_cv: result.draft_cv || "",
     draft_cover_letter: result.draft_cover_letter || "",
     draft_answers: result.draft_answers || "",
     iterations: (state.iterations || 0) + 1,
     // Reset critiques
-    critique_truth: "", critique_star: "", critique_verbosity: "", critique_tone: "", critique_feedback: ""
+    critique_truth: "",
+    critique_star: "",
+    critique_verbosity: "",
+    critique_tone: "",
+    critique_feedback: "",
   };
 }
 
@@ -174,7 +182,7 @@ Output a JSON object with 'draft_cv' (markdown format) and 'draft_cover_letter' 
 async function critiqueTruth(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3-flash-preview",
+    model: "gemini-flash-lite-latest",
     contents: `You are the Truthfulness Critic. Compare the Draft CV/Cover Letter against the provided GitHub Repo context and Base CV.
 Are there any blatantly invented claims, skills, or metrics? 
 
@@ -188,9 +196,9 @@ ${state.draft_answers || ""}
 GitHub Context:
 ${JSON.stringify(state.repo_deep_dives)}
 
-Output a brief critique or "OK" if everything is grounded in the source data.`
+Output a brief critique or "OK" if everything is grounded in the source data.`,
   });
-  
+
   let fullText = "";
   for await (const chunk of stream) {
     fullText += chunk.text;
@@ -202,7 +210,7 @@ Output a brief critique or "OK" if everything is grounded in the source data.`
 async function critiqueStar(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3-flash-preview",
+    model: "gemini-flash-lite-latest",
     contents: `You are the STAR Method Critic. Evaluate the Draft CV.
 Do the bullet points and any application answers effectively use the STAR method (Situation, Task, Action, Result)? Or are they just a list of responsibilities?
 
@@ -212,9 +220,9 @@ ${state.draft_cv}
 Draft Answers (If any):
 ${state.draft_answers || ""}
 
-Output specific areas for improvement, or "OK" if well-formatted.`
+Output specific areas for improvement, or "OK" if well-formatted.`,
   });
-  
+
   let fullText = "";
   for await (const chunk of stream) {
     fullText += chunk.text;
@@ -226,7 +234,7 @@ Output specific areas for improvement, or "OK" if well-formatted.`
 async function critiqueVerbosity(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3-flash-preview",
+    model: "gemini-flash-lite-latest",
     contents: `You are the Conciseness Critic. Evaluate the Draft CV and Draft Cover Letter.
 Are they too wordy, rambling, or dense? Are they too sparse and lacking detail?
 
@@ -235,9 +243,9 @@ ${state.draft_cv}
 ${state.draft_cover_letter}
 ${state.draft_answers || ""}
 
-Output specific wording suggestions, or "OK" if perfectly balanced.`
+Output specific wording suggestions, or "OK" if perfectly balanced.`,
   });
-  
+
   let fullText = "";
   for await (const chunk of stream) {
     fullText += chunk.text;
@@ -249,7 +257,7 @@ Output specific wording suggestions, or "OK" if perfectly balanced.`
 async function critiqueTone(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3-flash-preview",
+    model: "gemini-flash-lite-latest",
     contents: `You are the Tone Critic. Analyze the Draft CV and Cover Letter against the Job Description vibe.
 Does the candidate show off appropriately without sounding arrogant or overly boastful?
 
@@ -260,9 +268,9 @@ ${state.draft_cv}
 ${state.draft_cover_letter}
 ${state.draft_answers || ""}
 
-Output tone adjustments needed, or "OK" if tone matches beautifully.`
+Output tone adjustments needed, or "OK" if tone matches beautifully.`,
   });
-  
+
   let fullText = "";
   for await (const chunk of stream) {
     fullText += chunk.text;
@@ -274,7 +282,7 @@ Output tone adjustments needed, or "OK" if tone matches beautifully.`
 async function critiqueAggregator(state: AgentStateType, config?: RunnableConfig) {
   const onChunk = config?.configurable?.onChunk;
   const stream = await ai.models.generateContentStream({
-    model: "gemini-3-flash-preview",
+    model: "gemini-flash-lite-latest",
     contents: `You are the Master Editor. Analyze the following 4 distinct critiques of the current Draft CV and Cover Letter.
     
 1. Truthfulness Critique: ${state.critique_truth}
@@ -332,24 +340,24 @@ const workflow = new StateGraph(AgentState)
   .addNode("Critique_Verbosity", critiqueVerbosity)
   .addNode("Critique_Tone", critiqueTone)
   .addNode("Critique_Aggregator", critiqueAggregator)
-  
+
   .addEdge(START, "Analyze_JD")
   .addEdge("Analyze_JD", "Profile_Match")
   .addEdge("Profile_Match", "Fetch_Repo_Context")
   .addEdge("Fetch_Repo_Context", "Draft_Docs")
-  
+
   // Fan out to parallel critiques
   .addEdge("Draft_Docs", "Critique_Truth")
   .addEdge("Draft_Docs", "Critique_STAR")
   .addEdge("Draft_Docs", "Critique_Verbosity")
   .addEdge("Draft_Docs", "Critique_Tone")
-  
+
   // Fan in to aggregator
   .addEdge("Critique_Truth", "Critique_Aggregator")
   .addEdge("Critique_STAR", "Critique_Aggregator")
   .addEdge("Critique_Verbosity", "Critique_Aggregator")
   .addEdge("Critique_Tone", "Critique_Aggregator")
-  
+
   .addConditionalEdges("Critique_Aggregator", routeCritique);
 
 const checkpointer = new MemorySaver();

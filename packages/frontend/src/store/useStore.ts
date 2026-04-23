@@ -1,153 +1,163 @@
-import { create } from 'zustand';
-
-interface SSEMessage {
-  type: string;
-  message?: string;
-  data?: any;
-}
-
-interface AppState {
-  // Input State
-  githubUsername: string;
-  setGithubUsername: (val: string) => void;
-  baseCv: string;
-  setBaseCv: (val: string) => void;
-  cvViewMode: "raw" | "preview";
-  setCvViewMode: (mode: "raw" | "preview") => void;
-  
-  // Pipeline State
-  isRunning: boolean;
-  logs: string[];
-  progress: number;
-  activeNodes: string[];
-  currentPhase: string;
-  currentQuestion: string | null;
-  isWizardComplete: boolean;
-
-  // Actions
-  startAgent: () => Promise<void>;
-  submitAnswer: (answer: string) => Promise<void>;
-  setIsRunning: (val: boolean) => void;
-  setIsWizardComplete: (val: boolean) => void;
-}
-
-let eventSource: EventSource | null = null;
+import { create } from "zustand";
+import { AppState } from "./types";
+import { dbOps, initDB } from "../db/indexedDB";
+import { Gemma4Inference } from "../ai/Gemma4Inference";
+import { GemmaEmbeddings } from "../ai/GemmaEmbeddings";
 
 export const useStore = create<AppState>((set, get) => ({
-  githubUsername: '',
+  githubUsername: "",
   setGithubUsername: (val) => set({ githubUsername: val }),
-  baseCv: '<!-- \n  Paste your Markdown Curriculum here...\n  (Click anywhere in this box to edit!)\n-->\n\n',
+  baseCv: "<!-- \n  Paste your Markdown Curriculum here...\n  (Click anywhere in this box to edit!)\n-->\n\n",
   setBaseCv: (val) => set({ baseCv: val }),
-  cvViewMode: 'raw',
+  cvViewMode: "raw",
   setCvViewMode: (mode) => set({ cvViewMode: mode }),
 
   isRunning: false,
   logs: [],
   progress: 0,
   activeNodes: [],
-  currentPhase: "Parsing Github...",
+  currentPhase: "Idle",
   currentQuestion: null,
   isWizardComplete: false,
+  langgraphEvents: [],
+  langgraphValues: {},
+  subagents: {},
+  targetRepos: [],
+  reposProgress: {},
+  knowledgeBaseTree: [],
+  entities: null,
 
   setIsRunning: (val) => set({ isRunning: val }),
   setIsWizardComplete: (val) => set({ isWizardComplete: val }),
 
-  startAgent: async () => {
+  setupSseHandler: () => {
+    // Deprecated: No more backend SSE
+  },
+
+  startAgent: async (selectedRepos?: any[]) => {
     const { githubUsername, baseCv } = get();
-    
+
     set({
       isRunning: true,
-      logs: [],
-      currentQuestion: null,
+      logs: ["Starting Frontend Agent Pipeline...", "Initializing indexedDB and AI Models..."],
       progress: 0,
-      activeNodes: [],
-      currentPhase: "Parsing Github...",
-      isWizardComplete: false
+      currentPhase: "Loading Models",
     });
 
     try {
-      await fetch(`http://${window.location.hostname}:3001/api/ingest/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ githubUrl: githubUsername, baseCv }),
+      // 1. Initialize Profile
+      await dbOps.saveProfile({
+        id: "main",
+        github_handle: githubUsername,
+        base_cv: baseCv,
+        extended_cv: "",
+        demographics_json: {},
+        created_at: Date.now()
       });
 
-      if (eventSource) eventSource.close();
-      eventSource = new EventSource(`http://${window.location.hostname}:3001/api/ingest/stream`);
+      // 2. Load Gemma Instances natively
+      set(s => ({ logs: [...s.logs, "Allocating WebGPU Context for Gemma 4 & Embeddings..."] }));
+      
+      // Initialize in parallel purely caching to warm them up
+      await Promise.all([
+        Gemma4Inference.initialize(),
+        GemmaEmbeddings.initialize()
+      ]);
 
-      eventSource.onmessage = (event) => {
-        const parsed = JSON.parse(event.data) as SSEMessage;
-        if (parsed.type === "ping") return;
+      set(s => ({ progress: 20, logs: [...s.logs, "Models Load successfully. Begin CV Parsing"] }));
 
-        if (parsed.type === "log") {
-          set((state) => {
-            let pgr = state.progress;
-            let phase = state.currentPhase;
-            const msg = parsed.message || "";
-            
-            // Embedding chunk X/Y
-            let chunkMatch = msg.match(/\[(.*?)\] Embedding chunk (\d+)\/(\d+)\.\.\./);
-            if (chunkMatch) {
-                pgr = (parseInt(chunkMatch[2]) / parseInt(chunkMatch[3])) * 100;
-                phase = `Embedding: ${chunkMatch[1]}`;
-            } else if (msg.includes("Using Gemini 3.1 Flash Lite")) {
-                phase = "Summarizing via Gemini 3.1 Flash Lite...";
-                pgr = 50;
-            } else if (msg.includes("Fetching GitHub handle")) {
-                phase = "Fetching Repositories...";
-                pgr = 10;
-            } else if (msg.includes("Generating project vector embeddings")) {
-                phase = "Initializing Variables...";
-                pgr = 0;
-            } else if (msg.includes("Database RAG Vectors loaded")) {
-                phase = "Context Ready";
-                pgr = 100;
+      const parsePrompt = `Extract up to 5 experiences and 5 skills from the following CV. Output as strict JSON formatted like: {"skills": [{"id": "uuid", "name": "Python", "type": "Language"}], "experiences": [{"id": "uuid", "company":"X", "role":"Dev", "start_date":"2020", "end_date":"2021", "description":"Did stuff", "skills":[]}]}.\nCV:\n${baseCv}`;
+      
+      set({ currentPhase: "Extracting Entities" });
+      const llmResult = await Gemma4Inference.generate(parsePrompt, "json");
+      
+      // Quick parse
+      try {
+        const jsonMatch = llmResult.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.skills) {
+                for (const sk of parsed.skills) await dbOps.saveSkill(sk);
             }
-            
-            return {
-               logs: [...state.logs, msg],
-               progress: pgr,
-               currentPhase: phase
-            };
-          });
+            if (parsed.experiences) {
+                for (const exp of parsed.experiences) await dbOps.saveExperience(exp);
+            }
         }
+      } catch(e) {
+          console.warn("Failed to parse extracted JSON from Gemma", e);
+      }
 
-        if (parsed.type === "interrupt") {
-          set((state) => ({
-             currentPhase: parsed.data.phase || "Interview Phase",
-             currentQuestion: parsed.data.question,
-             logs: [...state.logs, "Agent paused for user input..."]
-          }));
-        }
+      set(s => ({ progress: 60, logs: [...s.logs, "Entities Extracted Successfully!"] }));
 
-        if (parsed.type === "complete") {
-          set({
-             isRunning: false,
-             isWizardComplete: true,
-             currentPhase: "Onboarding Complete"
-          });
-          eventSource?.close();
-        }
-      };
+      // Process Github Repositories natively if selected
+      if (selectedRepos && selectedRepos.length > 0) {
+         set(s => ({ currentPhase: "Embedding Repositories", logs: [...s.logs, "Fetching Repository Text from Github..."] }));
+         for (const repo of selectedRepos) {
+             const proj = { id: repo.name, repo_name: repo.name, raw_text: repo.description || "", skills: [] };
+             await dbOps.saveProject(proj);
+             const emb = await GemmaEmbeddings.getEmbedding(repo.description || repo.name);
+             await dbOps.saveEmbedding({
+                 id: repo.name + "_chunk1",
+                 project_id: repo.name,
+                 chunk_index: 0,
+                 chunk_text: repo.description || "",
+                 embedding: emb
+             });
+             set(s => ({ logs: [...s.logs, `Embedded repository ${repo.name}`] }));
+         }
+      }
 
-      eventSource.onerror = (err) => {
-        console.error("SSE Error:", err);
-        eventSource?.close();
-        set({ isRunning: false });
-      };
+      set(s => ({ logs: [...s.logs, "Ingestion Pipeline Complete!"], progress: 100, isRunning: false, currentPhase: "Complete", isWizardComplete: true }));
+      await get().fetchEntities();
 
     } catch (e: any) {
-        console.error("Failed to start agent:", e);
-        set({ isRunning: false });
+      console.error(e);
+      set(s => ({ isRunning: false, logs: [...s.logs, "Error: " + e.message] }));
     }
   },
 
   submitAnswer: async (answer: string) => {
+    // Deprecated for now
     set({ currentQuestion: null });
-    await fetch(`http://${window.location.hostname}:3001/api/ingest/answer`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answer }),
-    });
+  },
+
+  startInterview: async (baseCv: string) => {
+    // Subsumed by startAgent
+  },
+
+  startImprover: async (message: string, extendedCv: string) => {
+    // Native improve phase using in-browser Gemma
+    set({ isRunning: true, logs: ["Starting Improver..."] });
+    try {
+        const prompt = `Improve the following CV using context: ${message}\nCV:\n${extendedCv}`;
+        const newCv = await Gemma4Inference.generate(prompt);
+        set(s => ({ isRunning: false, logs: [...s.logs, "Improver generation complete."] }));
+        console.log("Improved CV:", newCv);
+    } catch(e) {
+        console.error(e);
+        set(s => ({ isRunning: false, logs: [...s.logs, "Improver Error"] }));
+    }
+  },
+
+  fetchEntities: async () => {
+    try {
+        const skills = await dbOps.getSkills();
+        const experiences = await dbOps.getExperiences();
+        const projects = await dbOps.getProjects();
+        set({ entities: { skills, experiences, projects } as any });
+    } catch (e) {
+        console.error("Failed to fetch entities", e);
+    }
+  },
+
+  deleteEntity: async (type: "skill" | "experience", id: string | number) => {
+    try {
+        const db = await initDB();
+        if (type === "skill") await db.delete("skills", String(id));
+        if (type === "experience") await db.delete("experiences", String(id));
+        await get().fetchEntities();
+    } catch (e) {
+        console.error("Failed to delete entity", e);
+    }
   }
 }));
