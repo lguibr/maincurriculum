@@ -1,12 +1,6 @@
-<<<<<<< Updated upstream
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
-=======
-import * as React from "react"
-
-import { cn } from "@/lib/utils"
->>>>>>> Stashed changes
 
 function Card({
   className,
@@ -23,11 +17,7 @@ function Card({
       )}
       {...props}
     />
-<<<<<<< Updated upstream
   );
-=======
-  )
->>>>>>> Stashed changes
 }
 
 function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
@@ -40,11 +30,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
       )}
       {...props}
     />
-<<<<<<< Updated upstream
   );
-=======
-  )
->>>>>>> Stashed changes
 }
 
 function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
@@ -57,11 +43,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
       )}
       {...props}
     />
-<<<<<<< Updated upstream
   );
-=======
-  )
->>>>>>> Stashed changes
 }
 
 function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
@@ -71,31 +53,17 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
       className={cn("text-sm text-muted-foreground", className)}
       {...props}
     />
-<<<<<<< Updated upstream
   );
-=======
-  )
->>>>>>> Stashed changes
 }
 
 function CardAction({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-action"
-<<<<<<< Updated upstream
       className={cn("col-start-2 row-span-2 row-start-1 self-start justify-self-end", className)}
       {...props}
     />
   );
-=======
-      className={cn(
-        "col-start-2 row-span-2 row-start-1 self-start justify-self-end",
-        className
-      )}
-      {...props}
-    />
-  )
->>>>>>> Stashed changes
 }
 
 function CardContent({ className, ...props }: React.ComponentProps<"div">) {
@@ -105,11 +73,7 @@ function CardContent({ className, ...props }: React.ComponentProps<"div">) {
       className={cn("px-4 group-data-[size=sm]/card:px-3", className)}
       {...props}
     />
-<<<<<<< Updated upstream
   );
-=======
-  )
->>>>>>> Stashed changes
 }
 
 function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
@@ -122,22 +86,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
       )}
       {...props}
     />
-<<<<<<< Updated upstream
   );
 }
 
 export { Card, CardHeader, CardFooter, CardTitle, CardAction, CardDescription, CardContent };
-=======
-  )
-}
-
-export {
-  Card,
-  CardHeader,
-  CardFooter,
-  CardTitle,
-  CardAction,
-  CardDescription,
-  CardContent,
-}
->>>>>>> Stashed changes

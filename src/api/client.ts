@@ -6,7 +6,7 @@ import {
   TailorResponse,
   UpdateProfileRequest,
   UpdateExtendedProfileRequest,
-  ImproveRequest
+  ImproveRequest,
 } from "@/shared";
 
 const API_BASE = `http://${window?.location?.hostname}:3001/api`;
@@ -51,7 +51,7 @@ export const api = {
       });
       if (!res.ok) throw new Error("Failed to improve base CV");
       return res.json();
-    }
+    },
   },
   profile: {
     getLatest: async () => {
@@ -77,7 +77,7 @@ export const api = {
       });
       if (!res.ok) throw new Error("Failed to update extended profile");
       return res.json();
-    }
+    },
   },
   tailor: {
     generate: async (payload: TailorRequest): Promise<TailorResponse> => {
@@ -88,21 +88,21 @@ export const api = {
       });
       if (!res.ok) throw new Error("Failed to tailor CV");
       return res.json();
-    }
+    },
   },
   github: {
     getRepos: async (handle: string) => {
       const res = await fetch(`${API_BASE}/github/repos/${handle}`);
       if (!res.ok) throw new Error("Failed to get repos");
       return res.json();
-    }
+    },
   },
   system: {
     reset: async () => {
       const res = await fetch(`${API_BASE}/reset`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to reset database");
       return res.json();
-    }
+    },
   },
   entities: {
     get: async (userProfileId: string | number) => {
@@ -119,6 +119,6 @@ export const api = {
       const res = await fetch(`${API_BASE}/entities/skill/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete skill");
       return res.json();
-    }
-  }
+    },
+  },
 };

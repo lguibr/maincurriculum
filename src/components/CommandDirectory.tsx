@@ -10,7 +10,9 @@ export function CommandDirectory() {
       <div className="p-4 border-b border-[#171c24] bg-[#171c24]/50">
         <div className="flex items-center gap-2">
           <Database className="w-4 h-4 text-[#00fbfb]" />
-          <h2 className="text-sm font-semibold tracking-widest uppercase font-mono">Entity Archive</h2>
+          <h2 className="text-sm font-semibold tracking-widest uppercase font-mono">
+            Entity Archive
+          </h2>
         </div>
         <p className="text-xs text-[#b9cac9] mt-1 font-mono">Knowledge Base Accumulator</p>
       </div>
@@ -31,14 +33,14 @@ export function CommandDirectory() {
               <div
                 key={i}
                 className={`flex items-start gap-2 py-1 ${
-                  isCompleted ? "text-[#00fbfb]" : 
-                  isGenerating ? "text-[#b9cac9]" : 
-                  "text-[#dee2ee]"
+                  isCompleted
+                    ? "text-[#00fbfb]"
+                    : isGenerating
+                      ? "text-[#b9cac9]"
+                      : "text-[#dee2ee]"
                 }`}
               >
-                {node.includes("|-") ? (
-                  <span className="text-[#3a4a49] shrink-0">|-</span>
-                ) : null}
+                {node.includes("|-") ? <span className="text-[#3a4a49] shrink-0">|-</span> : null}
 
                 {isCompleted ? (
                   <Archive className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#00fbfb]" />

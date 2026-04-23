@@ -70,10 +70,14 @@ export const initDB = () => {
   if (!dbPromise) {
     dbPromise = openDB<CurriculumDB>("CurriculumDB", 1, {
       upgrade(db) {
-        if (!db.objectStoreNames.contains("profiles")) db.createObjectStore("profiles", { keyPath: "id" });
-        if (!db.objectStoreNames.contains("skills")) db.createObjectStore("skills", { keyPath: "id" });
-        if (!db.objectStoreNames.contains("experiences")) db.createObjectStore("experiences", { keyPath: "id" });
-        if (!db.objectStoreNames.contains("projects")) db.createObjectStore("projects", { keyPath: "id" });
+        if (!db.objectStoreNames.contains("profiles"))
+          db.createObjectStore("profiles", { keyPath: "id" });
+        if (!db.objectStoreNames.contains("skills"))
+          db.createObjectStore("skills", { keyPath: "id" });
+        if (!db.objectStoreNames.contains("experiences"))
+          db.createObjectStore("experiences", { keyPath: "id" });
+        if (!db.objectStoreNames.contains("projects"))
+          db.createObjectStore("projects", { keyPath: "id" });
         if (!db.objectStoreNames.contains("embeddings")) {
           const embStore = db.createObjectStore("embeddings", { keyPath: "id" });
           embStore.createIndex("by-project", "project_id");
@@ -95,7 +99,7 @@ export const dbOps = {
     const db = await initDB();
     await db.put("profiles", profile);
   },
-  
+
   async saveSkill(skill: Skill) {
     const db = await initDB();
     await db.put("skills", skill);
@@ -151,13 +155,13 @@ export const dbOps = {
   async searchSimilarChunks(queryVector: number[], topK: number = 3) {
     const db = await initDB();
     const all = await db.getAll("embeddings");
-    
-    const scored = all.map(vec => ({
+
+    const scored = all.map((vec) => ({
       chunk: vec,
-      score: this.cosineSimilarity(queryVector, vec.embedding)
+      score: this.cosineSimilarity(queryVector, vec.embedding),
     }));
 
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, topK).map(s => s.chunk);
-  }
+    return scored.slice(0, topK).map((s) => s.chunk);
+  },
 };

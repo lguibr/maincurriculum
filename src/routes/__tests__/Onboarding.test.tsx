@@ -65,24 +65,30 @@ describe("Suite A: Frontend React Router DOM / Onboarding", () => {
   });
 
   it("A4. Launch button gets enabled when inputs are filled", async () => {
-    vi.mocked(storeModule.useStore).mockImplementation(() => ({
-        ...defaultStoreState,
-        githubUsername: "testuser",
-        baseCv: "some text"
-    }) as any);
-    
+    vi.mocked(storeModule.useStore).mockImplementation(
+      () =>
+        ({
+          ...defaultStoreState,
+          githubUsername: "testuser",
+          baseCv: "some text",
+        }) as any
+    );
+
     render(<Onboarding />);
     const btn = screen.getByText("Launch Command Graph");
     expect((btn as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("A5. Clicking Launch button triggers startAgent", async () => {
-    vi.mocked(storeModule.useStore).mockImplementation(() => ({
-        ...defaultStoreState,
-        githubUsername: "testuser",
-        baseCv: "some text"
-    }) as any);
-    
+    vi.mocked(storeModule.useStore).mockImplementation(
+      () =>
+        ({
+          ...defaultStoreState,
+          githubUsername: "testuser",
+          baseCv: "some text",
+        }) as any
+    );
+
     render(<Onboarding />);
     const btn = screen.getByText("Launch Command Graph");
     fireEvent.click(btn);
@@ -95,26 +101,32 @@ describe("Suite A: Frontend React Router DOM / Onboarding", () => {
   });
 
   it("A7. Subagent stream renders when running", () => {
-    vi.mocked(storeModule.useStore).mockImplementation(() => ({
-      ...defaultStoreState,
-      isRunning: true,
-      subagents: {
-        agent1: { name: "Agent 1", status: "computing", message: "Fetching repos" }
-      }
-    }) as any);
-    
+    vi.mocked(storeModule.useStore).mockImplementation(
+      () =>
+        ({
+          ...defaultStoreState,
+          isRunning: true,
+          subagents: {
+            agent1: { name: "Agent 1", status: "computing", message: "Fetching repos" },
+          },
+        }) as any
+    );
+
     render(<Onboarding />);
     expect(screen.queryByText("Graph Offline")).toBeNull();
   });
 
   it("A8. Displays an interrupt question properly", () => {
-    vi.mocked(storeModule.useStore).mockImplementation(() => ({
-      ...defaultStoreState,
-      isRunning: true,
-      subagents: { agent1: { status: "waiting" } },
-      currentPhase: "Interviewer",
-      currentQuestion: "Can you elaborate on your DevOps experience?"
-    }) as any);
+    vi.mocked(storeModule.useStore).mockImplementation(
+      () =>
+        ({
+          ...defaultStoreState,
+          isRunning: true,
+          subagents: { agent1: { status: "waiting" } },
+          currentPhase: "Interviewer",
+          currentQuestion: "Can you elaborate on your DevOps experience?",
+        }) as any
+    );
 
     render(<Onboarding />);
     expect(screen.getByText("Can you elaborate on your DevOps experience?")).toBeDefined();
@@ -122,17 +134,20 @@ describe("Suite A: Frontend React Router DOM / Onboarding", () => {
   });
 
   it("A9. Answer input accepts value and calls submitAnswer on submit", () => {
-    vi.mocked(storeModule.useStore).mockImplementation(() => ({
-      ...defaultStoreState,
-      currentQuestion: "Question?"
-    }) as any);
+    vi.mocked(storeModule.useStore).mockImplementation(
+      () =>
+        ({
+          ...defaultStoreState,
+          currentQuestion: "Question?",
+        }) as any
+    );
 
     render(<Onboarding />);
     const answerInput = screen.getByPlaceholderText(/Provide your answer/);
-    
+
     // Type answer
     fireEvent.change(answerInput, { target: { value: "I have 5 years of experience." } });
-    
+
     // Find the Send button
     // It's the only button in the question area other than the copy button.
     // We can find it by its icon or just grab the second button in that section.
@@ -146,16 +161,19 @@ describe("Suite A: Frontend React Router DOM / Onboarding", () => {
   });
 
   it("A10. Renders back to memory link when wizard complete", () => {
-    vi.mocked(storeModule.useStore).mockImplementation(() => ({
-        ...defaultStoreState,
-        isWizardComplete: true
-    }) as any);
-    
+    vi.mocked(storeModule.useStore).mockImplementation(
+      () =>
+        ({
+          ...defaultStoreState,
+          isWizardComplete: true,
+        }) as any
+    );
+
     render(
       <BrowserRouter>
         <Onboarding />
       </BrowserRouter>
-    ); 
+    );
 
     expect(screen.getByText("Resume System Operation")).toBeDefined();
   });

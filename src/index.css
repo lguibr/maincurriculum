@@ -59,30 +59,30 @@
   --popover-foreground: oklch(0.985 0 0);
 
   /* Google Blue Subtle styling */
-  --primary: oklch(0.573 0.165 258.406); 
+  --primary: oklch(0.573 0.165 258.406);
   --primary-foreground: oklch(0.985 0 0);
-  
+
   /* Google Green */
   --secondary: oklch(0.647 0.165 146.541);
   --secondary-foreground: oklch(0.985 0 0);
-  
+
   /* Deep grays */
   --muted: oklch(0.12 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  
+
   /* Google Yellow */
   --accent: oklch(0.803 0.177 82.529);
   --accent-foreground: oklch(0.1 0 0); /* Dark text on Yellow */
-  
+
   /* Google Red */
   --destructive: oklch(0.574 0.217 25.109);
   --destructive-foreground: oklch(0.985 0 0);
-  
+
   /* Subtle borders */
   --border: oklch(0.15 0 0);
   --input: oklch(0.15 0 0);
   --ring: oklch(0.573 0.165 258.406); /* Blue rings */
-  
+
   /* Sidebar */
   --sidebar: oklch(0.02 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
@@ -109,7 +109,7 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.04 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.573 0.165 258.406); 
+  --primary: oklch(0.573 0.165 258.406);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.647 0.165 146.541);
   --secondary-foreground: oklch(0.985 0 0);

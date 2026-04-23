@@ -19,7 +19,8 @@ export default function Improve() {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    api.profile.getLatest()
+    api.profile
+      .getLatest()
       .then((d) => {
         if (d && d.id) {
           setProfileId(d.id);

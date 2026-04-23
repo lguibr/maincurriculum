@@ -14,7 +14,11 @@ export function EntityDashboard() {
   const projects = store.entities?.projects || [];
 
   if (!store.entities) {
-     return <div className="p-4 text-sm text-muted-foreground animate-pulse">Loading architectural context...</div>;
+    return (
+      <div className="p-4 text-sm text-muted-foreground animate-pulse">
+        Loading architectural context...
+      </div>
+    );
   }
 
   return (
@@ -24,7 +28,8 @@ export function EntityDashboard() {
           <Database className="w-5 h-5 mr-2" /> Extracted Relational Profile
         </h3>
         <p className="text-xs text-muted-foreground mt-1">
-          Review the Skills and Work Experiences autonomously structured by the AI. Manage any hallucinated additions before extending your CV.
+          Review the Skills and Work Experiences autonomously structured by the AI. Manage any
+          hallucinated additions before extending your CV.
         </p>
       </div>
 
@@ -34,18 +39,22 @@ export function EntityDashboard() {
           <h4 className="font-bold text-sm text-foreground/80 flex items-center mb-4 uppercase tracking-wider">
             <Code className="w-4 h-4 mr-2" />
             Detected Skills & Technologies
-            <span className="ml-3 bg-primary/20 text-primary px-2 py-0.5 rounded-full text-[10px]">{skills.length} isolated</span>
+            <span className="ml-3 bg-primary/20 text-primary px-2 py-0.5 rounded-full text-[10px]">
+              {skills.length} isolated
+            </span>
           </h4>
-          
+
           <div className="flex flex-wrap gap-2">
             {skills.map((skill) => (
-              <div 
-                key={skill.id} 
+              <div
+                key={skill.id}
                 className="group relative flex items-center bg-card border border-border hover:border-primary/50 shadow-sm rounded-full pl-3 pr-1 py-1 transition-all"
               >
                 <span className="text-sm font-medium mr-2">{skill.name}</span>
-                <span className="text-[10px] text-muted-foreground mr-2 capitalize">({skill.type})</span>
-                <button 
+                <span className="text-[10px] text-muted-foreground mr-2 capitalize">
+                  ({skill.type})
+                </span>
+                <button
                   onClick={() => store.deleteEntity("skill", skill.id)}
                   className="bg-destructive/10 hover:bg-destructive/80 text-destructive hover:text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all"
                 >
@@ -53,7 +62,9 @@ export function EntityDashboard() {
                 </button>
               </div>
             ))}
-            {skills.length === 0 && <span className="text-xs text-muted-foreground italic">No skills extracted yet.</span>}
+            {skills.length === 0 && (
+              <span className="text-xs text-muted-foreground italic">No skills extracted yet.</span>
+            )}
           </div>
         </section>
 
@@ -62,13 +73,18 @@ export function EntityDashboard() {
           <h4 className="font-bold text-sm text-foreground/80 flex items-center mb-4 uppercase tracking-wider">
             <Briefcase className="w-4 h-4 mr-2" />
             Timeline Experiences
-            <span className="ml-3 bg-primary/20 text-primary px-2 py-0.5 rounded-full text-[10px]">{experiences.length} extracted</span>
+            <span className="ml-3 bg-primary/20 text-primary px-2 py-0.5 rounded-full text-[10px]">
+              {experiences.length} extracted
+            </span>
           </h4>
-          
+
           <div className="space-y-4">
             {experiences.map((exp) => (
-              <div key={exp.id} className="relative p-5 rounded-xl border bg-card/50 hover:bg-card border-border/50 transition-colors group">
-                <button 
+              <div
+                key={exp.id}
+                className="relative p-5 rounded-xl border bg-card/50 hover:bg-card border-border/50 transition-colors group"
+              >
+                <button
                   onClick={() => store.deleteEntity("experience", exp.id)}
                   className="absolute top-4 right-4 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
                 >
@@ -90,7 +106,10 @@ export function EntityDashboard() {
                 {exp.skills && exp.skills.length > 0 && (
                   <div className="mt-4 flex flex-wrap gap-1.5">
                     {exp.skills.map((s: any) => (
-                      <span key={s.id} className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-md border border-primary/20">
+                      <span
+                        key={s.id}
+                        className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-md border border-primary/20"
+                      >
                         {s.name}
                       </span>
                     ))}
@@ -98,7 +117,11 @@ export function EntityDashboard() {
                 )}
               </div>
             ))}
-            {experiences.length === 0 && <span className="text-xs text-muted-foreground italic">No experiences extracted yet.</span>}
+            {experiences.length === 0 && (
+              <span className="text-xs text-muted-foreground italic">
+                No experiences extracted yet.
+              </span>
+            )}
           </div>
         </section>
 
@@ -107,12 +130,17 @@ export function EntityDashboard() {
           <h4 className="font-bold text-sm text-foreground/80 flex items-center mb-4 uppercase tracking-wider">
             <Library className="w-4 h-4 mr-2" />
             Analyzed Repositories
-            <span className="ml-3 bg-primary/20 text-primary px-2 py-0.5 rounded-full text-[10px]">{projects.length} mapped</span>
+            <span className="ml-3 bg-primary/20 text-primary px-2 py-0.5 rounded-full text-[10px]">
+              {projects.length} mapped
+            </span>
           </h4>
-          
+
           <div className="space-y-4">
             {projects.map((proj) => (
-              <div key={proj.id} className="relative p-5 rounded-xl border bg-card/30 border-border/50 transition-colors">
+              <div
+                key={proj.id}
+                className="relative p-5 rounded-xl border bg-card/30 border-border/50 transition-colors"
+              >
                 <div className="flex justify-between items-start mb-2">
                   <h5 className="font-bold text-base text-foreground flex items-center">
                     <ChevronRight className="w-4 h-4 text-primary mr-1" /> {proj.name}
@@ -126,7 +154,10 @@ export function EntityDashboard() {
                 {proj.skills && proj.skills.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {proj.skills.map((s: any) => (
-                      <span key={s.id} className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-md border border-primary/20">
+                      <span
+                        key={s.id}
+                        className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-md border border-primary/20"
+                      >
                         {s.name}
                       </span>
                     ))}
@@ -134,7 +165,11 @@ export function EntityDashboard() {
                 )}
               </div>
             ))}
-            {projects.length === 0 && <span className="text-xs text-muted-foreground italic">No relevant projects extracted.</span>}
+            {projects.length === 0 && (
+              <span className="text-xs text-muted-foreground italic">
+                No relevant projects extracted.
+              </span>
+            )}
           </div>
         </section>
       </div>
