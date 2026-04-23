@@ -53,6 +53,7 @@ export default function Onboarding() {
     }
     // Auto advance to Phase 3 when Ingestion completes and wizard is waiting
     if (wizardPhase === 2 && !store.isRunning && store.currentPhase === "Require CV") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setWizardPhase(3);
     }
   }, [store.currentQuestion, store.isRunning, store.progress, wizardPhase, store.currentPhase]);

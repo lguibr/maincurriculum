@@ -181,7 +181,7 @@ export function RepoProgressTracker({
   });
 
   const isPending = targetRepos.length === 0;
-  let totalPercentage = isPending
+  const totalPercentage = isPending
     ? globalProgressOverride
     : Math.round((completedRepos / targetRepos.length) * 100) || 0;
 

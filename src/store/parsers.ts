@@ -3,7 +3,7 @@ import { AppState } from "./types";
 export function handleLanggraphEvent(payload: any, state: AppState) {
   const newSubagents = { ...state.subagents };
   let newTargetRepos = [...state.targetRepos];
-  let newReposProgress = { ...state.reposProgress };
+  const newReposProgress = { ...state.reposProgress };
 
   if (payload.event === "on_tool_end" && payload.name === "fetch_github_repos") {
     try {
@@ -51,7 +51,7 @@ export function handleLanggraphEvent(payload: any, state: AppState) {
         }
       } else if (input?.file_path || input?.path) {
         const pathStr = String(input.file_path || input.path);
-        const match = pathStr.match(/\/temp_repos\/([^\/]+)/);
+        const match = pathStr.match(/\/temp_repos\/([^/]+)/);
         if (match && match[1] && newReposProgress[match[1]]) {
           newReposProgress[match[1]].phase = "Reading Files...";
         }
@@ -155,10 +155,10 @@ export function handleLanggraphEvent(payload: any, state: AppState) {
 export function handleLogEvent(msg: string, state: AppState) {
   let pgr = state.progress;
   let phase = state.currentPhase;
-  let newReposProgress = { ...state.reposProgress };
-  let newKbTree = [...state.knowledgeBaseTree];
+  const newReposProgress = { ...state.reposProgress };
+  const newKbTree = [...state.knowledgeBaseTree];
 
-  const repoNameFall = msg.match(/(?:\/temp_repos\/([^\/]+))/);
+  const repoNameFall = msg.match(/(?:\/temp_repos\/([^/]+))/);
 
   let foundName = null;
   const sortedRepos = [...state.targetRepos].sort((a, b) => b.length - a.length);
