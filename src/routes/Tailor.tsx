@@ -3,6 +3,11 @@ import ReactMarkdown from "react-markdown";
 import { Loader2, Briefcase, FileSignature, MessageSquare } from "lucide-react";
 import { dbOps } from "../db/indexedDB";
 import { GeminiInference } from "../ai/GeminiInference";
+import { Button } from "../components/ui/button";
+import { Textarea } from "../components/ui/textarea";
+import { Card } from "../components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { ScrollArea } from "../components/ui/scroll-area";
 
 export default function Tailor() {
   const [jobDesc, setJobDesc] = useState("");
@@ -79,89 +84,85 @@ ${jobDesc}
   return (
     <div className="h-full flex gap-4 p-4 overflow-hidden print:h-auto print:overflow-visible print:block print:p-0">
       {/* Left Pane: Input Forms */}
-      <div className="w-1/3 flex flex-col gap-4 overflow-y-auto pr-2 pb-8 print:hidden">
-        <div className="flex items-center gap-2 text-primary font-bold">
-          <Briefcase className="w-5 h-5" /> Target Job Description
-        </div>
-        <textarea
-          value={jobDesc}
-          onChange={(e) => setJobDesc(e.target.value)}
-          placeholder="Paste the target job description here..."
-          className="h-64 bg-card border border-border/50 rounded-xl p-4 focus:ring-2 focus:ring-primary/50 outline-none resize-none"
-        />
+      <Card className="w-1/3 flex flex-col overflow-hidden print:hidden border-border/40 bg-background/40 backdrop-blur-xl shadow-2xl">
+        <ScrollArea className="flex-1">
+          <div className="flex flex-col gap-4 p-4">
+            <div className="flex items-center gap-2 text-primary font-bold">
+              <Briefcase className="w-5 h-5" /> Target Job Description
+            </div>
+            <Textarea
+              value={jobDesc}
+              onChange={(e) => setJobDesc(e.target.value)}
+              placeholder="Paste the target job description here..."
+              className="min-h-[250px] resize-none bg-background/50 border-border/40 focus-visible:ring-primary/50"
+            />
 
-        <div className="flex items-center gap-2 text-primary font-bold mt-2">
-          <MessageSquare className="w-5 h-5" /> Employer Questions (Optional)
+            <div className="flex items-center gap-2 text-primary font-bold mt-2">
+              <MessageSquare className="w-5 h-5" /> Employer Questions (Optional)
+            </div>
+            <Textarea
+              value={employerQuestions}
+              onChange={(e) => setEmployerQuestions(e.target.value)}
+              placeholder="e.g. 'Why do you want to work here?' or 'What is your salary expectation?'..."
+              className="min-h-[150px] resize-none bg-background/50 border-border/40 focus-visible:ring-primary/50"
+            />
+          </div>
+        </ScrollArea>
+        <div className="p-4 border-t border-border/40 bg-background/60">
+          <Button
+            onClick={handleTailor}
+            disabled={loading || !jobDesc}
+            className="w-full h-12 font-bold shadow-lg transition-all"
+            size="lg"
+          >
+            {loading ? (
+              <Loader2 className="w-5 h-5 animate-spin mr-2" />
+            ) : (
+              <FileSignature className="w-5 h-5 mr-2" />
+            )}
+            {loading ? "Agent is writing..." : "Generate RAG Application"}
+          </Button>
         </div>
-        <textarea
-          value={employerQuestions}
-          onChange={(e) => setEmployerQuestions(e.target.value)}
-          placeholder="e.g. 'Why do you want to work here?' or 'What is your salary expectation?'..."
-          className="h-40 bg-card border border-border/50 rounded-xl p-4 focus:ring-2 focus:ring-primary/50 outline-none resize-none"
-        />
-
-        <button
-          onClick={handleTailor}
-          disabled={loading || !jobDesc}
-          className="mt-2 w-full h-12 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 flex-shrink-0"
-        >
-          {loading ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            <FileSignature className="w-5 h-5" />
-          )}
-          {loading ? "Agent is writing..." : "Generate RAG Application"}
-        </button>
-      </div>
+      </Card>
 
       {/* Right Pane: Output with Tabs */}
-      <div className="w-2/3 flex flex-col relative h-full print:w-full print:h-auto print:block">
-        <div className="flex gap-2 mb-2 print:hidden justify-between w-full relative">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setActiveTab("cv")}
-              className={`px-4 py-2 rounded-t-lg font-semibold transition-all border-b-2 ${activeTab === "cv" ? "border-primary text-primary bg-primary/10" : "border-transparent text-muted-foreground hover:bg-muted"}`}
-            >
-              Tailored CV
-            </button>
-            <button
-              onClick={() => setActiveTab("letter")}
-              className={`px-4 py-2 rounded-t-lg font-semibold transition-all border-b-2 ${activeTab === "letter" ? "border-primary text-primary bg-primary/10" : "border-transparent text-muted-foreground hover:bg-muted"}`}
-            >
-              Cover Letter
-            </button>
-            <button
-              onClick={() => setActiveTab("qa")}
-              className={`px-4 py-2 rounded-t-lg font-semibold transition-all border-b-2 ${activeTab === "qa" ? "border-primary text-primary bg-primary/10" : "border-transparent text-muted-foreground hover:bg-muted"}`}
-            >
-              Form Answers
-            </button>
-          </div>
-          {hasOutput && (
-            <button
-              onClick={() => window.print()}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              Export PDF
-            </button>
-          )}
-        </div>
-
-        <div className="flex-1 bg-card border border-border/50 rounded-b-xl rounded-tr-xl overflow-hidden shadow-2xl relative print:border-none print:shadow-none print:bg-white print:overflow-visible print:block">
-          <div className="h-full p-8 overflow-y-auto w-full max-w-none prose prose-invert prose-emerald print:h-auto print:overflow-visible print:p-0">
-            {hasOutput ? (
-              <ReactMarkdown>{getActiveContent()}</ReactMarkdown>
-            ) : (
-              <div className="h-full w-full flex flex-col items-center justify-center opacity-30 pointer-events-none">
-                <div className="h-8 bg-muted rounded w-1/3 mb-6" />
-                <div className="h-4 bg-muted rounded w-full mb-3" />
-                <div className="h-4 bg-muted rounded w-5/6 mb-8" />
-                <div className="h-32 bg-muted rounded-xl w-full" />
-              </div>
+      <Card className="w-2/3 flex flex-col relative h-full print:w-full print:h-auto print:block border-border/40 bg-background/40 backdrop-blur-xl shadow-2xl overflow-hidden">
+        <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)} className="h-full flex flex-col">
+          <div className="flex justify-between items-center p-2 border-b border-border/40 bg-background/60 print:hidden">
+            <TabsList className="bg-background/50">
+              <TabsTrigger value="cv">Tailored CV</TabsTrigger>
+              <TabsTrigger value="letter">Cover Letter</TabsTrigger>
+              <TabsTrigger value="qa">Form Answers</TabsTrigger>
+            </TabsList>
+            {hasOutput && (
+              <Button
+                onClick={() => window.print()}
+                variant="secondary"
+                className="bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 font-bold"
+              >
+                Export PDF
+              </Button>
             )}
           </div>
-        </div>
-      </div>
+
+          <div className="flex-1 overflow-hidden relative print:overflow-visible print:block bg-transparent top-pane-hack">
+            <ScrollArea className="h-full w-full print:h-auto">
+              <div className="p-8 max-w-none prose prose-invert prose-emerald print:h-auto print:overflow-visible print:p-0 text-foreground">
+                {hasOutput ? (
+                  <ReactMarkdown>{getActiveContent()}</ReactMarkdown>
+                ) : (
+                  <div className="h-full w-full flex flex-col items-center justify-center opacity-30 mt-20 pointer-events-none">
+                    <div className="h-8 bg-muted rounded w-1/3 mb-6" />
+                    <div className="h-4 bg-muted rounded w-full mb-3" />
+                    <div className="h-4 bg-muted rounded w-5/6 mb-8" />
+                    <div className="h-32 bg-muted rounded-xl w-full" />
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        </Tabs>
+      </Card>
     </div>
   );
 }

@@ -6,13 +6,24 @@ import Tailor from "./routes/Tailor";
 import Improve from "./routes/Improve";
 import Memory from "./routes/Memory";
 import { usePipelineStore } from "./store/usePipelineStore";
+import { useProfileStore } from "./store/useProfileStore";
 import { dbOps } from "./db/indexedDB";
 
 export default function App() {
   const isWizardComplete = usePipelineStore((state) => state.isWizardComplete);
   const setIsWizardComplete = usePipelineStore((state) => state.setIsWizardComplete);
+  const setGithubAvatarUrl = useProfileStore((s) => s.setGithubAvatarUrl);
+  const setGithubBio = useProfileStore((s) => s.setGithubBio);
+  const setGithubUsername = useProfileStore((s) => s.setGithubUsername);
 
   useEffect(() => {
+    const avatar = localStorage.getItem("GITHUB_AVATAR");
+    const bio = localStorage.getItem("GITHUB_BIO");
+    const handle = localStorage.getItem("GITHUB_HANDLE");
+    if (avatar) setGithubAvatarUrl(avatar);
+    if (bio) setGithubBio(bio);
+    if (handle) setGithubUsername(handle);
+
     if (!isWizardComplete) {
       dbOps
         .getProfile("main")

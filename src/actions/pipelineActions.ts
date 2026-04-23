@@ -40,7 +40,7 @@ export const startAgent = async (selectedRepos?: any[]) => {
       const existingMap = new Map();
       for (const p of existingProjects) existingMap.set(p.repo_name, p);
 
-      const targetReposToProcess = [];
+      const targetReposToProcess: any[] = [];
       for (const repo of selectedRepos) {
          const existProj = existingMap.get(repo.name);
          let shouldUpdate = true;
@@ -253,11 +253,12 @@ export const fetchEntities = async () => {
   }
 };
 
-export const deleteEntity = async (type: "skill" | "experience" | "education", id: string | number) => {
+export const deleteEntity = async (type: "skill" | "experience" | "education" | "project", id: string | number) => {
   try {
     if (type === "skill") await dbOps.deleteSkill(id as string);
     if (type === "experience") await dbOps.deleteExperience(id as string);
     if (type === "education") await dbOps.deleteEducation(id as string);
+    if (type === "project") await dbOps.deleteProject(id as string);
     await fetchEntities();
   } catch (e) {
     console.error("Failed to delete entity", e);

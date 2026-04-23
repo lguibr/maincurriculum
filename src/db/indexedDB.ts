@@ -83,7 +83,7 @@ let dbPromise: Promise<IDBPDatabase<CurriculumDB>> | null = null;
 
 export const initDB = () => {
   if (!dbPromise) {
-    dbPromise = openDB<CurriculumDB>("CurriculumDB", 1, {
+    dbPromise = openDB<CurriculumDB>("CurriculumDB", 2, {
       upgrade(db) {
         if (!db.objectStoreNames.contains("profiles"))
           db.createObjectStore("profiles", { keyPath: "id" });

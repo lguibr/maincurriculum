@@ -36,6 +36,7 @@ import {
 } from "../components/PipelineChat";
 import { EntityDashboard } from "../components/EntityDashboard";
 import { CommandDirectory } from "../components/CommandDirectory";
+import { AsciiBackground } from "../components/ui/AsciiBackground";
 export default function Onboarding() {
   const {
     baseCv,
@@ -113,6 +114,8 @@ export default function Onboarding() {
     const gToken = localStorage.getItem("GITHUB_TOKEN");
     const gemToken = localStorage.getItem("GEMINI_API_KEY");
     const ghHandle = localStorage.getItem("GITHUB_HANDLE") || githubUsername;
+    const ghAvatar = localStorage.getItem("GITHUB_AVATAR");
+    const ghBio = localStorage.getItem("GITHUB_BIO");
 
     localStorage.clear();
 
@@ -120,6 +123,8 @@ export default function Onboarding() {
     if (gToken) localStorage.setItem("GITHUB_TOKEN", gToken);
     if (gemToken) localStorage.setItem("GEMINI_API_KEY", gemToken);
     if (ghHandle) localStorage.setItem("GITHUB_HANDLE", ghHandle);
+    if (ghAvatar) localStorage.setItem("GITHUB_AVATAR", ghAvatar);
+    if (ghBio) localStorage.setItem("GITHUB_BIO", ghBio);
 
     try {
       const { initDB } = await import("../db/indexedDB");
@@ -157,6 +162,9 @@ export default function Onboarding() {
           const profData = await profRes.json();
           useProfileStore.getState().setGithubAvatarUrl(profData.avatar_url || "");
           useProfileStore.getState().setGithubBio(profData.bio || "");
+          
+          if (profData.avatar_url) localStorage.setItem("GITHUB_AVATAR", profData.avatar_url);
+          if (profData.bio) localStorage.setItem("GITHUB_BIO", profData.bio);
         }
       } catch (err) {
         console.warn("Failed to fetch Github profile", err);
@@ -215,8 +223,9 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/30 h-screen overflow-hidden text-sm">
-      <header className="shrink-0 flex items-center justify-between p-4 bg-muted/20 border-b border-border/40 backdrop-blur-md">
+    <div className="min-h-screen text-foreground flex flex-col font-sans selection:bg-primary/30 h-screen overflow-hidden text-sm relative">
+      <AsciiBackground />
+      <header className="shrink-0 flex items-center justify-between p-4 bg-background/60 border-b border-border/40 backdrop-blur-xl z-10">
         <div className="flex items-center gap-4">
           <img src="/logo.png" alt="Main Curriculum Logo" className="h-10 w-auto object-contain" />
           {githubAvatarUrl && (
@@ -269,13 +278,13 @@ export default function Onboarding() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-hidden p-6 flex flex-col items-center">
+      <main className="flex-1 overflow-hidden p-6 flex flex-col items-center z-10 relative">
         <div
           className={`w-full flex-1 flex flex-col gap-6 min-h-0 transition-all duration-500 ${wizardPhase === 4 ? "max-w-[1600px]" : "max-w-4xl"}`}
         >
-          <div className="w-full flex-1 flex flex-col bg-card border border-border/50 rounded-2xl overflow-hidden shadow-2xl min-h-0">
+          <div className="w-full flex-1 flex flex-col bg-background/40 backdrop-blur-2xl border border-border/50 rounded-2xl overflow-hidden shadow-2xl min-h-0">
             <div
-              className={`p-5 border-b border-border/50 bg-muted/40 shrink-0 ${wizardPhase === 1 ? "hidden" : ""}`}
+              className={`p-5 border-b border-border/50 bg-background/60 shrink-0 ${wizardPhase === 1 ? "hidden" : ""}`}
             >
               <h2 className="font-semibold text-base flex items-center">
                 <User className="w-5 h-5 mr-3 text-primary" /> Context Setup
@@ -284,7 +293,7 @@ export default function Onboarding() {
 
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative border-0 bg-transparent">
               {wizardPhase === 1 && (
-                <div className="h-full flex flex-col overflow-hidden bg-[#09090b] text-[#f1f3fc] relative rounded-b-2xl">
+                <div className="h-full flex flex-col overflow-hidden bg-transparent text-[#f1f3fc] relative rounded-b-2xl">
                   {/* Subtle Grid Background */}
                   <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:32px_32px]"></div>
 
@@ -478,14 +487,14 @@ export default function Onboarding() {
               )}
 
               {wizardPhase === 2 && (
-                <div className="flex-1 flex min-h-0 bg-background/50 overflow-hidden relative rounded-b-2xl">
+                <div className="flex-1 flex min-h-0 bg-transparent overflow-hidden relative rounded-b-2xl">
                   {/* Left Column: Command Directory */}
-                  <div className="w-1/3 min-w-[350px] border-r border-[#171c24] bg-[#0f141b] h-full flex flex-col overflow-hidden hidden md:flex">
+                  <div className="w-1/3 min-w-[350px] border-r border-[#171c24] bg-transparent h-full flex flex-col overflow-hidden hidden md:flex">
                     <CommandDirectory />
                   </div>
 
                   {/* Right Column: Ingestion Progress */}
-                  <div className="flex-1 p-6 md:p-10 flex flex-col items-center overflow-y-auto custom-scrollbar bg-[#090e16]">
+                  <div className="flex-1 p-6 md:p-10 flex flex-col items-center overflow-y-auto custom-scrollbar bg-transparent">
                     <div className="shrink-0 flex flex-col items-center mt-4">
                       <Loader2 className="w-16 h-16 text-[#00fbfb] animate-spin mb-6 drop-shadow-[0_0_15px_rgba(0,251,251,0.5)]" />
                       <h3 className="text-xl font-bold font-mono tracking-widest text-[#dee2ee] mb-2 uppercase">
@@ -508,8 +517,8 @@ export default function Onboarding() {
               )}
 
               {wizardPhase === 3 && (
-                <div className="flex-1 flex flex-col min-h-0 bg-[#1e1e1e] relative">
-                  <div className="absolute top-0 w-full z-10 flex justify-between items-center px-4 py-2 bg-[#2d2d2d] border-b border-[#3c3c3c] shadow-lg">
+                <div className="flex-1 flex flex-col min-h-0 bg-transparent relative">
+                  <div className="absolute top-0 w-full z-10 flex justify-between items-center px-4 py-2 bg-background/60 border-b border-[#3c3c3c] shadow-lg backdrop-blur-md">
                     <Label className="text-[10px] text-gray-400 font-mono tracking-widest flex items-center">
                       <FileCode className="w-3 h-3 mr-2" /> BASE_CV.md
                     </Label>
@@ -538,14 +547,14 @@ export default function Onboarding() {
               )}
 
               {wizardPhase === 4 && (
-                <div className="flex-1 flex min-h-0 bg-background/50 overflow-hidden relative">
+                <div className="flex-1 flex min-h-0 bg-transparent overflow-hidden relative">
                   {/* Left Column: Entity Dashboard */}
-                  <div className="w-1/3 min-w-[350px] border-r border-border/50 bg-muted/10 h-full flex flex-col overflow-hidden hidden md:flex">
+                  <div className="w-1/3 min-w-[350px] border-r border-border/50 bg-background/30 h-full flex flex-col overflow-hidden hidden md:flex">
                     <EntityDashboard />
                   </div>
 
                   {/* Right Column: Interactive Interview Planner */}
-                  <div className="flex-1 p-6 flex flex-col justify-start min-h-0 bg-background/50 overflow-hidden relative">
+                  <div className="flex-1 p-6 flex flex-col justify-start min-h-0 bg-transparent overflow-hidden relative">
                     {isWizardComplete ? (
                       <div className="flex flex-col h-full w-full animate-in fade-in duration-500 overflow-hidden">
                         <div className="flex flex-col items-center justify-center p-6 border-b border-border/50 shrink-0 bg-muted/5">
