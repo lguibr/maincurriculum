@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import { Loader2, FolderGit2, Send, Bot, User, Edit3, Eye, RefreshCw } from "lucide-react";
-import { api } from "../api/client";
+import { dbOps } from "../db/indexedDB";
+import { GeminiInference } from "../ai/GeminiInference";
+import { useStore } from "../store/useStore";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -9,7 +11,7 @@ interface ChatMessage {
 }
 
 export default function Improve() {
-  const [profileId, setProfileId] = useState<number | null>(null);
+  const [profileId, setProfileId] = useState<string | null>(null);
   const [extendedCv, setExtendedCv] = useState("");
   const [draftMode, setDraftMode] = useState<"preview" | "edit">("preview");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -19,8 +21,7 @@ export default function Improve() {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    api.profile
-      .getLatest()
+    dbOps.getProfile("main")
       .then((d) => {
         if (d && d.id) {
           setProfileId(d.id);
@@ -34,110 +35,44 @@ export default function Improve() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, currentActionMsg]);
 
-  const sendChatMessage = async () => {
-    if (!inputMsg.trim() || isRunning) return;
-    const userTxt = inputMsg;
-    setInputMsg("");
-    setMessages((prev) => [...prev, { role: "user", content: userTxt }]);
+  const store = useStore();
 
-    startAgentFlow(userTxt, extendedCv);
-  };
-
-  const startAgentFlow = async (messageText: string = "", currentCvContent: string = "") => {
+  const executeAgentCloud = async (messageText: string = "", currentCvContent: string = "") => {
     setIsRunning(true);
-    setCurrentActionMsg("Connecting to Master CV Agent...");
-
+    setCurrentActionMsg("Connecting to Gemini 3...");
+    
+    setMessages((prev) => [...prev, { role: "assistant", content: "..." }]);
+    
     try {
-      const res = await api.improver.chat({ message: messageText, extendedCv: currentCvContent });
-
-      const aiFullText = "";
-
-      // Setup SSE connection to listen for stream events on the backend
-      // Note: the backend uses SSE but the POST request above triggers the streamEvents via a global context, wait...
-      // Actually earlier I added SSE to the POST endpoint! Let's read it here
-      if (!res.ok) throw new Error("Failed to start agent");
-    } catch (e) {
-      console.error(e);
-      setIsRunning(false);
-    }
-  };
-
-  // The actual POST in server.ts streams events. But `fetch` doesn't automatically parse SSE.
-  // Let's implement fetch streaming reader.
-  const executeAgentStreaming = async (messageText: string = "", currentCvContent: string = "") => {
-    setIsRunning(true);
-    setCurrentActionMsg("Connecting to Master CV Agent...");
-    let aiResponseContent = "";
-
-    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
-
-    try {
-      const response = await fetch(`http://${window.location.hostname}:3001/api/improver/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: messageText, extendedCv: currentCvContent }),
+      setCurrentActionMsg("Drafting new CV...");
+      
+      const prompt = `You are an expert tech recruiter and CV Improver. The user asks: "${messageText}".
+Here is the current CV draft. Rewrite and improve it based on their instructions, outputting ONLY the new CV draft. Do not add conversational text.
+-- CV START --
+${currentCvContent}
+-- CV END --`;
+      
+      let improveModel = "gemini-pro-latest";
+      if (store.cloudTier === "smart") improveModel = "gemini-pro-latest";
+      if (store.cloudTier === "balanced") improveModel = "gemini-flash-latest";
+      if (store.cloudTier === "widely") improveModel = "gemini-pro-latest";
+      
+      const response = await GeminiInference.generate(prompt, "text", improveModel);
+      
+      setMessages((prev) => {
+         const copy = [...prev];
+         copy[copy.length - 1].content = "✅ Generation Complete.";
+         return copy;
       });
+      
+      setExtendedCv(response);
+      setCurrentActionMsg("");
 
-      if (!response.body) throw new Error("No response body");
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-
-        buffer = lines.pop() || ""; // keep incomplete chunk in buffer
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const dataStr = line.slice(6).trim();
-            if (!dataStr) continue;
-            try {
-              const parsed = JSON.parse(dataStr);
-
-              if (parsed.type === "log" && parsed.message) {
-                setCurrentActionMsg(parsed.message);
-              }
-
-              if (parsed.type === "token") {
-                aiResponseContent += parsed.message;
-                setMessages((prev) => {
-                  const copy = [...prev];
-                  copy[copy.length - 1].content = aiResponseContent;
-                  return copy;
-                });
-              }
-
-              if (parsed.type === "langgraph_event") {
-                const ev = parsed.payload;
-                if (ev.event === "on_chain_end" && ev.name === "Draft_CV") {
-                  if (ev.data?.output?.workingExtendedCv) {
-                    setExtendedCv(ev.data.output.workingExtendedCv);
-                  }
-                } else if (ev.event === "on_chain_end" && ev.name === "Consolidate_Feedback") {
-                  if (ev.data?.output?.workingExtendedCv) {
-                    setExtendedCv(ev.data.output.workingExtendedCv);
-                  }
-                }
-              }
-
-              if (parsed.type === "complete") {
-                setIsRunning(false);
-                setCurrentActionMsg("");
-              }
-            } catch (err) {
-              console.error("Parse error", dataStr, err);
-            }
-          }
-        }
-      }
     } catch (e: any) {
       console.error(e);
-      setIsRunning(false);
       setCurrentActionMsg("Error: " + e.message);
+    } finally {
+      setIsRunning(false);
     }
   };
 
@@ -146,7 +81,7 @@ export default function Improve() {
     const m = inputMsg;
     setInputMsg("");
     setMessages((prev) => [...prev, { role: "user", content: m }]);
-    executeAgentStreaming(m, extendedCv);
+    executeAgentCloud(m, extendedCv);
   };
 
   return (
@@ -156,7 +91,7 @@ export default function Improve() {
           <FolderGit2 className="w-5 h-5" /> Master CV Agent Canvas
         </div>
         <button
-          onClick={() => executeAgentStreaming("Review my entire CV layout again.", extendedCv)}
+          onClick={() => executeAgentCloud("Review my entire CV layout again. Improve vocabulary.", extendedCv)}
           disabled={isRunning || !profileId}
           className="px-4 py-2 bg-blue-600/20 text-blue-400 hover:bg-blue-600/40 disabled:opacity-50 font-semibold rounded shadow transition-all flex items-center justify-center gap-2 text-sm"
         >
@@ -176,7 +111,7 @@ export default function Improve() {
                 I am the SOTA Improver.
                 <br />
                 Ask me to rewrite sections, tweak tone, add skills, block lies, or expand
-                experiences using your github repos!
+                experiences directly via Gemini 3!
               </div>
             )}
             {messages.map((m, i) => (
@@ -255,8 +190,12 @@ export default function Improve() {
                 <button
                   onClick={async () => {
                     if (!profileId) return;
-                    await api.profile.updateExtended(profileId, { extended_cv: extendedCv });
-                    alert("Master CV permanently updated in DB!");
+                    const p = await dbOps.getProfile(profileId);
+                    if (p) {
+                      p.extended_cv = extendedCv;
+                      await dbOps.saveProfile(p);
+                      alert("Master CV permanently updated in IndexedDB!");
+                    }
                   }}
                   className="px-4 py-1.5 bg-purple-600/20 text-purple-400 hover:bg-purple-600 hover:text-white rounded text-xs font-bold transition"
                 >
