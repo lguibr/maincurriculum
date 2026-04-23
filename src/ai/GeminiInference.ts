@@ -40,7 +40,13 @@ export class GeminiInference {
     const data = await response.json();
     let textOut = "";
     if (data.candidates && data.candidates.length > 0) {
-        textOut = data.candidates[0].content.parts[0].text;
+        const candidate = data.candidates[0];
+        if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+            textOut = candidate.content.parts[0].text || "";
+        } else {
+            console.warn("Gemini output blocked or empty:", candidate);
+            textOut = "CV generation returned empty. (Possible Safety Filter Block)";
+        }
     }
     
     // Clean up markdown block if it maliciously sneaks it in via gemini

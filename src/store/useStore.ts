@@ -211,15 +211,16 @@ export const useStore = create<AppState>((set, get) => ({
     const newHistory = [...state.interviewHistory, { q: prevQ, a: answer }];
     
     // Clear question to trigger loading state in UI
-    set({ currentQuestion: null, interviewHistory: newHistory, currentPhase: `Interview ${newHistory.length + 1}/3` });
+    set({ currentQuestion: null, interviewHistory: newHistory, currentPhase: `Interview ${newHistory.length + 1}/1` });
 
     try {
         let extractModel = "gemini-flash-latest"; 
+
         if (state.cloudTier === "smart") extractModel = "gemini-flash-latest";
         if (state.cloudTier === "balanced") extractModel = "gemini-flash-lite-latest";
         if (state.cloudTier === "widely") extractModel = "gemini-flash-lite-latest";
 
-        if (newHistory.length < 3) {
+        if (newHistory.length < 1) {
             // Generate next question
             const historyText = newHistory.map((h, i) => `Q${i+1}: ${h.q}\nA${i+1}: ${h.a}`).join('\n\n');
             const interviewPrompt = `Based on this CV:\n${state.baseCv}\n\nAnd the previous Interview Q&A:\n${historyText}\n\nGenerate ONE highly technical, deep-dive interview question. Do not repeat previous questions. Provide only the question text.`;
@@ -229,9 +230,13 @@ export const useStore = create<AppState>((set, get) => ({
             // End of interview. Generate Extended CV!
             set({ currentPhase: "Generating Final CV" });
             const historyText = newHistory.map((h, i) => `Q${i+1}: ${h.q}\nA${i+1}: ${h.a}`).join('\n\n');
-            await get().startImprover(`The candidate had a technical interview answering 3 questions deeply about their background. Incorporate this deeper knowledge into their CV implicitly by strengthening their bullet points or summary:\n\n${historyText}`, state.baseCv);
+            const success = await get().startImprover(`The candidate had a technical interview answering deeply about their background. Incorporate this deeper knowledge into their CV implicitly by strengthening their bullet points or summary:\n\n${historyText}`, state.baseCv);
             
-            set({ currentPhase: "Complete", isWizardComplete: true });
+            if (success) {
+                set({ currentPhase: "Complete", isWizardComplete: true });
+            } else {
+                 set({ currentPhase: "Failed to generate CV. Please try again.", currentQuestion: prevQ, interviewHistory: state.interviewHistory });
+            }
         }
     } catch(e) {
         console.error("Interview flow error:", e);
@@ -267,9 +272,11 @@ export const useStore = create<AppState>((set, get) => ({
             prof.interview_history = get().interviewHistory;
             await dbOps.saveProfile(prof);
         }
+        return true;
     } catch(e) {
         console.error(e);
         set(s => ({ isRunning: false, logs: [...s.logs, "Improver Error"] }));
+        return false;
     }
   },
 
