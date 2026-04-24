@@ -51,24 +51,24 @@ If everything passes flawlessly, OR if you can fix minor formatting issues autom
 
 Output ONLY valid JSON. No markdown formatting.`;
 
-  const responseJson = await GeminiInference.generate(orchestratorPrompt, "json", "gemini-1.5-pro-latest");
+  const responseJson = await GeminiInference.generate(orchestratorPrompt, "json", "gemini-pro-latest");
 
   try {
     const parsed = JSON.parse(responseJson) as CritiqueResult;
 
     if (parsed.auto_updates) {
-       // Apply minor fixes directly
-       if (parsed.auto_updates.experiences) {
-           for (const exp of parsed.auto_updates.experiences) await dbOps.saveExperience(exp);
-       }
-       if (parsed.auto_updates.projects) {
-           for (const p of parsed.auto_updates.projects) {
-               const existing = await dbOps.getProject(p.id);
-               if (existing) {
-                  await dbOps.saveProject({ ...existing, ...p });
-               }
-           }
-       }
+      // Apply minor fixes directly
+      if (parsed.auto_updates.experiences) {
+        for (const exp of parsed.auto_updates.experiences) await dbOps.saveExperience(exp);
+      }
+      if (parsed.auto_updates.projects) {
+        for (const p of parsed.auto_updates.projects) {
+          const existing = await dbOps.getProject(p.id);
+          if (existing) {
+            await dbOps.saveProject({ ...existing, ...p });
+          }
+        }
+      }
     }
 
     return parsed;

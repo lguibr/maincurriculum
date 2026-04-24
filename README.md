@@ -90,13 +90,13 @@ We utilize different tiers of models to balance computational speed with high-in
 ```mermaid
 graph LR
     subgraph Extraction Phase
-        CV[Raw Text] -->|gemini-1.5-flash-latest| JSON[Structured JSON]
-        Code[Source Code] -->|gemini-1.5-flash-latest| Skills[Tech Stack JSON]
+        CV[Raw Text] -->|gemini-flash-latest| JSON[Structured JSON]
+        Code[Source Code] -->|gemini-flash-latest| Skills[Tech Stack JSON]
     end
     
     subgraph Intelligence Phase
-        JSON -->|gemini-1.5-pro-latest| Critique[5-Layer Orchestrator]
-        Critique -->|gemini-1.5-pro-latest| Interview[Deep-Dive Technical Interview]
+        JSON -->|gemini-pro-latest| Critique[5-Layer Orchestrator]
+        Critique -->|gemini-pro-latest| Interview[Deep-Dive Technical Interview]
     end
 ```
 
@@ -224,7 +224,7 @@ graph LR
     InterviewH[Rich Architectural Interview History]
     Graph[Relational Skills/Project Graph]
     
-    BaseCV --> Synthesizer(gemini-1.5-pro-latest)
+    BaseCV --> Synthesizer(gemini-pro-latest)
     InterviewH --> Synthesizer
     Graph --> Synthesizer
     

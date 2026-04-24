@@ -5,8 +5,9 @@
 **Goal:** Overhaul the Interview Pipeline in `pipelineActions.ts` to implement a 10-question flow structured by domain (Education, Skills, Projects, Experiences). Implement an internal "Self-Answering LLM Loop" that tries to answer questions using existing DB context before asking the user. Also, automatically refine poor user answers using the selected primary model.
 
 **Architecture:**
+
 - **Model Standard**: Use the user's selected `cloudTier` ("smart" = `gemini-pro-latest`) across ALL question generation and evaluation tasks.
-- **Topical 10-Question Flow**: 
+- **Topical 10-Question Flow**:
   - Q1: Education
   - Q2-Q3: Skills
   - Q4-Q6: Projects
@@ -24,6 +25,7 @@
 ### Task 1: Create the Inner AI Logic in `pipelineActions.ts`
 
 **Files:**
+
 - Modify: `src/actions/pipelineActions.ts`
 
 **Step 1: Create `generateValidatedQuestion` helper**
@@ -73,6 +75,7 @@ Rewrite the question to specifically ask the candidate to fill in this missing k
 ```
 
 **Step 2: Add Answer Refiner helper**
+
 ```typescript
 async function refineUserAnswer(question: string, rawAnswer: string, model: string): Promise<string> {
     const prompt = `The user was asked an elite technical interview question: "${question}"
@@ -86,10 +89,12 @@ Act as a Principal Engineer. Rewrite, sharpen, and professionalize this answer s
 ### Task 2: Refactor `processCvAndInterview` & `submitAnswer`
 
 **Step 1: Process CV (Triggering Q1 - Education)**
-- Determine model logic (`"smart"` -> `gemini-pro-latest` or `gemini-1.5-pro-latest`, or we can just use the latest pro).
+
+- Determine model logic (`"smart"` -> `gemini-pro-latest` or `gemini-pro-latest`, or we can just use the latest pro).
 - Pass the full CV string to `generateValidatedQuestion` with `topic="Education"`.
 
 **Step 2: Submit Answer Flow**
+
 - In `submitAnswer`, before pushing to history, intercept `answer` -> `await refineUserAnswer(prevQ, answer, model)`.
 - Push refined answer to history.
 - Check `newHistory.length`. Select topic based on index:
@@ -100,6 +105,7 @@ Act as a Principal Engineer. Rewrite, sharpen, and professionalize this answer s
 - At length == 10, trigger `startImprover` to generate the final CV using the beautifully refined history.
 
 **Step 3: Commit**
+
 ```bash
 git add src/actions/pipelineActions.ts
 git commit -m "feat: ai interview refactor with self-validation loop"
