@@ -167,7 +167,7 @@ graph TD
     App <--> EntityStore
     App <--> InterviewStore
     
-    PipelineStore -.-> InterviewStore: Phase transitions
+    PipelineStore -.->|Phase transitions| InterviewStore
 ```
 
 ### 8. Interactive Orchestrator Chat Loop
