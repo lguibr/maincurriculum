@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AgentLogViewer } from "@/components/features/AgentLogViewer";
 
 interface UnifiedOrchestratorStepProps {
   isWizardComplete: boolean;
@@ -74,15 +75,19 @@ export function UnifiedOrchestratorStep({
     return (
       <div className="flex flex-col h-full items-center justify-center text-muted-foreground p-8 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,251,251,0.05)_0%,transparent_70%)] pointer-events-none" />
-        <Loader2 className="w-16 h-16 text-[#00fbfb] shadow-cyan-500 drop-shadow-[0_0_15px_rgba(0,251,251,0.5)] animate-spin mb-6" />
-        <h3 className="text-xl text-[#dee2ee] font-mono tracking-widest font-bold mb-2 uppercase text-center">
+        <Loader2 className="w-16 h-16 text-[#00fbfb] shadow-cyan-500 drop-shadow-[0_0_15px_rgba(0,251,251,0.5)] animate-spin mb-6 relative z-10" />
+        <h3 className="text-xl text-[#dee2ee] font-mono tracking-widest font-bold mb-2 uppercase text-center relative z-10">
           Initializing Orchestrator
         </h3>
-        <p className="text-sm opacity-60 mt-2 max-w-[400px] text-center font-mono mx-auto">
+        <p className="text-sm opacity-60 mt-2 max-w-[400px] text-center font-mono mx-auto relative z-10">
           {currentPhase}
           <br />
           <span className="text-[#00fbfb] mt-4 block">{progress}%</span>
         </p>
+
+        <div className="w-full relative z-10 mt-8 max-w-4xl max-h-[50vh]">
+          <AgentLogViewer />
+        </div>
       </div>
     );
   }

@@ -37,7 +37,9 @@ export interface Education {
 
 export interface Project {
   id: string;
-  repo_name: string;
+  name?: string;
+  repo_name: string; // Used as fallback or GitHub identifier
+  associated_context?: string; // Company or context where it was built
   raw_text: string;
   skills: string[]; // skill IDs
   last_synced_at?: number; // timestamp for delta sync

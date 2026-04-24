@@ -65,6 +65,18 @@ export class GeminiInference {
         .trim();
     }
 
+    // Attempt to log via zustand store dynamically without creating a circular module dependency block
+    try {
+      const { usePipelineStore } = await import("../store/usePipelineStore");
+      usePipelineStore.getState().addInferenceLog({
+         model: modelName,
+         prompt: strictPrompt,
+         response: textOut
+      });
+    } catch(e) {
+      console.warn("Failed to inject inference log into store", e);
+    }
+
     return textOut;
   }
 

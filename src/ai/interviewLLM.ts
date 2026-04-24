@@ -13,28 +13,26 @@ export async function getInterviewTargetForIndex(idx: number): Promise<{topic: s
   exps.sort((a,b) => new Date(b.start_date || 0).getTime() - new Date(a.start_date || 0).getTime());
   projs.sort((a,b) => new Date(b.start_date || 0).getTime() - new Date(a.start_date || 0).getTime());
   
-  const ctxBase = "Base DB Graph Context:\\n";
-
   if (idx === 0) {
-     return { topic: "Education and Academic Background", context: ctxBase + JSON.stringify(edus) };
+     return { topic: "Education and Academic Background", context: `Target Educations: ${JSON.stringify(edus)}` };
   } else if (idx === 1) {
      const p = projs.length > 0 ? projs[0] : null;
-     return { topic: p ? `Specific Project Architecture: ${p.repo_name}` : "Software Architecture on recent projects", context: ctxBase + (p ? JSON.stringify(p) : "No specific project found.") };
+     return { topic: p ? `Specific Project Architecture: ${p.name || p.repo_name}` : "Software Architecture on recent projects", context: p ? `Target Project: ${JSON.stringify(p)}` : "No specific project found." };
   } else if (idx === 2) {
      const p = projs.length > 1 ? projs[projs.length - 1] : (projs.length > 0 ? projs[0] : null);
-     return { topic: p ? `Older Project Evolution: ${p.repo_name}` : "Software Architecture on past projects", context: ctxBase + (p ? JSON.stringify(p) : "No specific project found.") };
+     return { topic: p ? `Older Project Evolution: ${p.name || p.repo_name}` : "Software Architecture on past projects", context: p ? `Target Project: ${JSON.stringify(p)}` : "No specific project found." };
   } else if (idx === 3) {
      const e = exps.length > 2 ? exps[2] : (exps.length > 0 ? exps[0] : null);
-     return { topic: e ? `Experience Impact: ${e.role} at ${e.company}` : "Professional Experience Impact", context: ctxBase + (e ? JSON.stringify(e) : "No specific experience found.") };
+     return { topic: e ? `Experience Impact: ${e.role} at ${e.company}` : "Professional Experience Impact", context: e ? `Target Experience: ${JSON.stringify(e)}` : "No specific experience found." };
   } else if (idx === 4) {
      const e = exps.length > 1 ? exps[1] : (exps.length > 0 ? exps[0] : null);
-     return { topic: e ? `Experience Impact: ${e.role} at ${e.company}` : "Professional Experience Impact", context: ctxBase + (e ? JSON.stringify(e) : "No specific experience found.") };
+     return { topic: e ? `Experience Impact: ${e.role} at ${e.company}` : "Professional Experience Impact", context: e ? `Target Experience: ${JSON.stringify(e)}` : "No specific experience found." };
   } else if (idx === 5) {
      const e = exps.length > 0 ? exps[0] : null;
-     return { topic: e ? `Most Recent Role Systems Design: ${e.role} at ${e.company}` : "Recent Systems Design", context: ctxBase + (e ? JSON.stringify(e) : "No specific experience found.") };
+     return { topic: e ? `Most Recent Role Systems Design: ${e.role} at ${e.company}` : "Recent Systems Design", context: e ? `Target Experience: ${JSON.stringify(e)}` : "No specific experience found." };
   } else {
      const e = exps.length > 0 ? exps[0] : null;
-     return { topic: e ? `Most Recent Role Leadership & Tradeoffs: ${e.role} at ${e.company}` : "Recent Leadership", context: ctxBase + (e ? JSON.stringify(e) : "No specific experience found.") };
+     return { topic: e ? `Most Recent Role Leadership & Tradeoffs: ${e.role} at ${e.company}` : "Recent Leadership", context: e ? `Target Experience: ${JSON.stringify(e)}` : "No specific experience found." };
   }
 }
 
@@ -47,7 +45,7 @@ export async function generateValidatedQuestion(topic: string, specificContext: 
 Target Context: ${specificContext}
 History: ${history}
 
-Generate ONE incredibly direct, highly technical, concise question probing architectural decisions, trade-offs, or complexities related SPECIFICALLY to the Target Context. No fluff, no personas, be stark and direct (e.g. 'How did you handle concurrency in project X?'). Output ONLY the question text.`;
+Generate ONE incredibly direct, highly technical, concise question probing architectural decisions, trade-offs, or complexities related SPECIFICALLY to the Target Context. You MUST strictly focus your question on the exact entity specified in the Target Context. DO NOT bundle multiple experiences. Name the specific project or experience explicitly in your question. No fluff, no personas, be stark and direct. Output ONLY the question text.`;
       
       const candidateQ = await GeminiInference.generate(qPrompt, "text", model);
       
@@ -108,13 +106,28 @@ Do not return identical untouched entities. Reply tightly with JSON only.`;
       if (jsonMatch) {
          const parsed = JSON.parse(jsonMatch[0]);
          if (parsed.skills) {
-            for (const sk of parsed.skills) await dbOps.saveSkill(sk);
+            const existingSkills = await dbOps.getSkills();
+            for (const sk of parsed.skills) {
+              const match = existingSkills.find(e => e.name.toLowerCase() === sk.name.toLowerCase());
+              if (match) sk.id = match.id;
+              await dbOps.saveSkill(sk);
+            }
          }
          if (parsed.experiences) {
-            for (const exp of parsed.experiences) await dbOps.saveExperience(exp);
+            const existingExps = await dbOps.getExperiences();
+            for (const exp of parsed.experiences) {
+              const match = existingExps.find(e => e.company === exp.company && e.role === exp.role);
+              if (match) exp.id = match.id;
+              await dbOps.saveExperience(exp);
+            }
          }
          if (parsed.projects) {
-            for (const proj of parsed.projects) await dbOps.saveProject(proj);
+            const existingProjs = await dbOps.getProjects();
+            for (const proj of parsed.projects) {
+              const match = existingProjs.find(e => (e.name && e.name === proj.name) || e.repo_name === proj.repo_name || e.repo_name === proj.name);
+              if (match) proj.id = match.id;
+              await dbOps.saveProject(proj);
+            }
          }
          await fetchEntities();
       }

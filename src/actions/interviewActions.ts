@@ -31,15 +31,18 @@ export const processCvAndInterview = async (cvText: string) => {
   try {
     const promptEducation = `Extract ALL academic educations from the following CV. Output as strict JSON formatted exactly like: {"educations": [{"id": "uuid", "school": "X", "degree": "BSCS", "start_date": "2015-01-01", "end_date": "2019-12-01", "description": "Studied computer science"}]}. For dates, you MUST use 'YYYY-MM-DD' format. If month is unknown, default to '-01-01'. Use 'Present' or null if ongoing.\nCV:\n${cvText}`;
 
-    const promptExperience = `Extract ALL work experiences and standalone projects from the following CV. Output as strict JSON formatted exactly like: {"experiences": [{"id": "uuid", "company":"X", "role":"Dev", "start_date":"2020-01-01", "end_date":"2021-12-01", "description":"Did stuff", "skills":[]}]}. For dates, you MUST use 'YYYY-MM-DD' format. If month is unknown, default to '-01-01'. Use 'Present' or null if ongoing.\nCV:\n${cvText}`;
+    const promptExperience = `Extract ONLY structural employment periods (companies worked for) from the following CV. Output as strict JSON formatted exactly like: {"experiences": [{"id": "uuid", "company":"X", "role":"Dev", "start_date":"2020-01-01", "end_date":"2021-12-01", "description":"Summary of employment", "skills":[]}]}. Do NOT mix specific sub-projects into the description if they are distinct systems. Use 'YYYY-MM-DD' format for dates.\nCV:\n${cvText}`;
+
+    const promptProjects = `Extract ALL notable technical projects mentioned in the CV (including internal corporate/company projects, like at Trebu or Paradigm, as well as standalone/GitHub projects). Output as strict JSON formatted exactly like: {"projects": [{"id": "uuid", "name": "Project X", "repo_name": "Project X", "associated_context": "Company Name or Personal", "raw_text": "What it is and what was built", "skills":[]}]}. Ensure every project has a 'name'.\nCV:\n${cvText}`;
 
     const promptSkills = `Extract ALL technical skills and tools from the following CV. Output as strict JSON formatted exactly like: {"skills": [{"id": "uuid", "name": "Python", "type": "Language"}]}.\nCV:\n${cvText}`;
 
     // 1. Fast extraction
     const extractModel = "gemini-flash-latest";
-    const [eduResult, expResult, skillsResult] = await Promise.all([
+    const [eduResult, expResult, projResult, skillsResult] = await Promise.all([
       GeminiInference.generate(promptEducation, "json", extractModel),
       GeminiInference.generate(promptExperience, "json", extractModel),
+      GeminiInference.generate(promptProjects, "json", extractModel),
       GeminiInference.generate(promptSkills, "json", extractModel)
     ]);
 
@@ -48,11 +51,20 @@ export const processCvAndInterview = async (cvText: string) => {
         const jsonMatch = llmResult.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
+          
           if (parsed.skills) {
-            for (const sk of parsed.skills) await dbOps.saveSkill(sk);
+            const existingSkills = await dbOps.getSkills();
+            for (const sk of parsed.skills) {
+              const match = existingSkills.find(e => e.name.toLowerCase() === sk.name.toLowerCase());
+              if (match) sk.id = match.id;
+              await dbOps.saveSkill(sk);
+            }
           }
           if (parsed.experiences) {
+            const existingExps = await dbOps.getExperiences();
             for (const exp of parsed.experiences) {
+              const match = existingExps.find(e => e.company === exp.company && e.role === exp.role);
+              if (match) exp.id = match.id;
               await dbOps.saveExperience(exp);
               try {
                 const textToEmbed = JSON.stringify(exp);
@@ -69,8 +81,34 @@ export const processCvAndInterview = async (cvText: string) => {
               } catch (e) { }
             }
           }
+          if (parsed.projects) {
+            const existingProjs = await dbOps.getProjects();
+            for (const proj of parsed.projects) {
+              const match = existingProjs.find(e => (e.name && e.name === proj.name) || e.repo_name === proj.repo_name || e.repo_name === proj.name);
+              if (match) proj.id = match.id;
+              // default raw_text if LLM uses description
+              if (!proj.raw_text && proj.description) proj.raw_text = proj.description;
+              await dbOps.saveProject(proj);
+              try {
+                const textToEmbed = JSON.stringify(proj);
+                const emb = await GeminiInference.getEmbedding(textToEmbed);
+                await dbOps.saveEmbedding({
+                  id: `proj_${proj.id}_embed`,
+                  project_id: proj.id,
+                  chunk_index: 0,
+                  chunk_text: textToEmbed,
+                  type: "entity",
+                  entity_type: "project",
+                  embedding: emb
+                });
+              } catch (e) { }
+            }
+          }
           if (parsed.educations) {
+            const existingEdus = await dbOps.getEducations();
             for (const edu of parsed.educations) {
+              const match = existingEdus.find(e => e.school === edu.school && e.degree === edu.degree);
+              if (match) edu.id = match.id;
               await dbOps.saveEducation(edu);
               try {
                 const textToEmbed = JSON.stringify(edu);
@@ -97,6 +135,7 @@ export const processCvAndInterview = async (cvText: string) => {
     await Promise.all([
       saveParsedJsonAndEmbed(eduResult),
       saveParsedJsonAndEmbed(expResult),
+      saveParsedJsonAndEmbed(projResult),
       saveParsedJsonAndEmbed(skillsResult)
     ]);
     await fetchEntities();
