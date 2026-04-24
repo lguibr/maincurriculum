@@ -6,16 +6,12 @@
 
 MainCurriculum is an elite, intelligent, and autonomous AI-driven curriculum and portfolio generator. It acts as an orchestrator, securely ingesting your GitHub codebase and raw text CV to construct a highly localized semantic **Knowledge Graph** of your career. Through a rigorous 5-layer critique system and a deep-dive "Principal Engineer" style technical interview, it perfectly aligns your resume points to your actual codebase reality, producing a verifiable, highly technical Master CV.
 
-### **GitHub Project Tags**
-`react` `vite` `gemini-pro` `gemini-api` `ai-agents` `semantic-search` `indexeddb` `knowledge-graph` `zustand` `autonomous-agents` `portfolio-generator` `llm-orchestrator`
-
----
-
 ## 🏗️ Architecture & Component Diagrams
 
 To fully grasp the scale and implementation of MainCurriculum, review the 10 architecture diagrams below outlining the exact data flows, LLM utilization, and state orchestrations.
 
 ### 1. High-Level System Architecture
+
 The foundational architecture blending the local client environment with remote intelligence.
 
 ```mermaid
@@ -34,6 +30,7 @@ graph TD
 ```
 
 ### 2. Unified Orchestrator Pipeline Flow
+
 The core user journey from initial configuration to the final Master Portfolio generation.
 
 ```mermaid
@@ -57,6 +54,7 @@ flowchart TD
 ```
 
 ### 3. The 5-Layer Critique Engine
+
 The defining feature of MainCurriculum. Before the AI accepts any CV claim, it validates it across five rigorous logical semantic layers.
 
 ```mermaid
@@ -86,6 +84,7 @@ flowchart TD
 ```
 
 ### 4. LLM Model Allocation Strategy
+
 We utilize different tiers of models to balance computational speed with high-intelligence reasoning.
 
 ```mermaid
@@ -102,6 +101,7 @@ graph LR
 ```
 
 ### 5. Semantic Vector Embedding Lifecycle
+
 All extracted codebase chunks and resume entities are embedded to allow instantaneous corroboration.
 
 ```mermaid
@@ -119,6 +119,7 @@ sequenceDiagram
 ```
 
 ### 6. Relational IndexedDB Schema
+
 Our local database structures the unstructured AI chaos into highly relational, durable graph data.
 
 ```mermaid
@@ -147,6 +148,7 @@ erDiagram
 ```
 
 ### 7. Zustand State Management Architecture
+
 The React application heavily relies on modular `zustand` stores to persist decoupled pipeline state.
 
 ```mermaid
@@ -169,6 +171,7 @@ graph TD
 ```
 
 ### 8. Interactive Orchestrator Chat Loop
+
 When the Orchestrator stalls on a gap, it enters a `CritiqueLoop` chat interface inside the UI, patching the DB upon successful responses.
 
 ```mermaid
@@ -188,6 +191,7 @@ sequenceDiagram
 ```
 
 ### 9. Deep-Dive Architect Interview Flow
+
 Instead of generic "HR" questions, the pipeline uses semantic targeting to grill the candidate on complex software architecture tradeoffs based directly on their actual repositories.
 
 ```mermaid
@@ -211,6 +215,7 @@ flowchart TD
 ```
 
 ### 10. Final Extrapolation & Assembly (Master CV)
+
 The pipeline terminates by synthesizing everything acquired from the ingestion DB and the interview loop into a beautiful structural breakdown.
 
 ```mermaid
@@ -231,6 +236,7 @@ graph LR
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Node.js 20+
 - Yarn or NPM
 - A GitHub Personal Access Token (for codebase ingestion)
@@ -239,17 +245,20 @@ graph LR
 ### Installation
 
 1. **Clone the repo**
+
    ```bash
    git clone https://github.com/your-username/maincurriculum.git
    cd maincurriculum
    ```
 
 2. **Install dependencies**
+
    ```bash
    yarn install
    ```
 
 3. **Start the Development Server (Vite)**
+
    ```bash
    yarn dev
    ```
