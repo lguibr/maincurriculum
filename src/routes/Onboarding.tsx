@@ -37,6 +37,7 @@ import {
 import { EntityDashboard } from "../components/EntityDashboard";
 import { CommandDirectory } from "../components/CommandDirectory";
 import { AsciiBackground } from "../components/ui/AsciiBackground";
+import { Logo } from "../components/ui/Logo";
 export default function Onboarding() {
   const {
     baseCv,
@@ -182,6 +183,7 @@ export default function Onboarding() {
           url: r.html_url,
           description: r.description,
           updatedAt: r.updated_at,
+          createdAt: r.created_at,
         }));
 
         setFetchedRepos(mapped);
@@ -227,7 +229,7 @@ export default function Onboarding() {
       <AsciiBackground />
       <header className="shrink-0 flex items-center justify-between p-4 bg-background/60 border-b border-border/40 backdrop-blur-xl z-10">
         <div className="flex items-center gap-4">
-          <img src="/logo.png" alt="Main Curriculum Logo" className="h-10 w-auto object-contain" />
+          <Logo alt="Main Curriculum Logo" className="h-10 w-auto object-contain" />
           {githubAvatarUrl && (
             <div className="flex items-center gap-3 ml-4 bg-black/20 p-1.5 pr-4 rounded-full border border-white/5">
               <img src={githubAvatarUrl} alt="Avatar" className="w-8 h-8 rounded-full border border-primary/20" />
@@ -299,8 +301,7 @@ export default function Onboarding() {
 
                   {fetchedRepos.length === 0 ? (
                     <div className="relative p-10 flex flex-col items-center justify-center h-full max-w-2xl mx-auto w-full text-center">
-                      <img
-                        src="/logo.png"
+                      <Logo
                         alt="Logo"
                         className="h-24 w-auto object-contain mb-10 drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]"
                       />

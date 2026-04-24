@@ -1,6 +1,7 @@
-import { FolderGit2, Briefcase, ChevronRight, Home, Activity, Database } from "lucide-react";
+import { FolderGit2, Briefcase, ChevronRight, Home, Activity, Database, BarChart3 } from "lucide-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { AsciiBackground } from "../components/ui/AsciiBackground";
+import { Logo } from "../components/ui/Logo";
 import { useProfileStore } from "../store/useProfileStore";
 
 export default function Dashboard() {
@@ -16,7 +17,7 @@ export default function Dashboard() {
       <div className="w-64 border-r border-border/40 bg-background/40 backdrop-blur-2xl flex flex-col shrink-0 print:hidden z-10">
         <div className="h-14 border-b border-border/40 flex items-center justify-center shrink-0">
           <Link to="/" className="hover:opacity-80 transition-opacity drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">
-            <img src="/logo.png" alt="Logo" className="h-8 w-auto object-contain" />
+            <Logo alt="Logo" className="h-8 w-auto object-contain" />
           </Link>
         </div>
         <nav className="flex-1 p-4 flex flex-col gap-2">
@@ -47,6 +48,13 @@ export default function Dashboard() {
             className={`flex items-center px-3 py-2 rounded-lg transition-all ${isActive("/memory") ? "bg-violet-500/10 text-violet-500 font-medium" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
           >
             <Database className="w-4 h-4 mr-3" /> Agent Context
+          </Link>
+
+          <Link
+            to="/timeline"
+            className={`flex items-center px-3 py-2 rounded-lg transition-all ${isActive("/timeline") ? "bg-amber-500/10 text-amber-500 font-medium" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
+          >
+            <BarChart3 className="w-4 h-4 mr-3" /> Timeline Metrics
           </Link>
 
           <div className="mt-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -109,7 +117,7 @@ export default function Dashboard() {
         <header className="h-14 border-b border-border/40 bg-card flex items-center px-4 shrink-0 justify-between print:hidden">
           <div className="flex items-center text-sm text-muted-foreground font-medium">
             <Link to="/" className="flex items-center hover:opacity-80 transition-opacity">
-              <img src="/logo.png" alt="Home Root" className="h-5 w-auto" />
+              <Logo alt="Home Root" className="h-5 w-auto" />
             </Link>
             <ChevronRight className="w-4 h-4 mx-1 opacity-50" />
             <Link

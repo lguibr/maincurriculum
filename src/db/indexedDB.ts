@@ -43,6 +43,17 @@ export interface Project {
   last_synced_at?: number; // timestamp for delta sync
 }
 
+export interface JobApplication {
+  id: string;
+  company: string;
+  role: string;
+  job_description: string;
+  tailored_cv: string;
+  cover_letter: string;
+  qa_prep: string;
+  created_at: number;
+}
+
 export interface ProjectChunkEmbedding {
   id: string;
   project_id: string;
@@ -77,6 +88,10 @@ interface CurriculumDB extends DBSchema {
     value: ProjectChunkEmbedding;
     indexes: { "by-project": string };
   };
+  job_applications: {
+    key: string;
+    value: JobApplication;
+  };
 }
 
 let dbPromise: Promise<IDBPDatabase<CurriculumDB>> | null = null;
@@ -99,6 +114,8 @@ export const initDB = () => {
           const embStore = db.createObjectStore("embeddings", { keyPath: "id" });
           embStore.createIndex("by-project", "project_id");
         }
+        if (!db.objectStoreNames.contains("job_applications"))
+          db.createObjectStore("job_applications", { keyPath: "id" });
       },
     });
   }
@@ -119,6 +136,12 @@ export const dbOps = {
 
   async saveSkill(skill: Skill) {
     const db = await initDB();
+    const all = await db.getAll("skills");
+    const dup = all.find(s => s.name.toLowerCase() === skill.name.toLowerCase() && s.id !== skill.id);
+    if (dup) {
+      skill = { ...dup, ...skill };
+      skill.id = dup.id;
+    }
     await db.put("skills", skill);
   },
   async getSkills() {
@@ -128,6 +151,12 @@ export const dbOps = {
 
   async saveExperience(exp: Experience) {
     const db = await initDB();
+    const all = await db.getAll("experiences");
+    const dup = all.find(e => e.company === exp.company && e.role === exp.role && e.id !== exp.id);
+    if (dup) {
+      exp = { ...dup, ...exp };
+      exp.id = dup.id; // ensure ID is preserved
+    }
     await db.put("experiences", exp);
   },
   async getExperiences() {
@@ -147,6 +176,12 @@ export const dbOps = {
 
   async saveProject(proj: Project) {
     const db = await initDB();
+    const all = await db.getAll("projects");
+    const dup = all.find(p => p.repo_name === proj.repo_name && p.id !== proj.id);
+    if (dup) {
+      proj = { ...dup, ...proj };
+      proj.id = dup.id;
+    }
     await db.put("projects", proj);
   },
   async getProjects() {
@@ -160,6 +195,9 @@ export const dbOps = {
 
   async saveEducation(edu: Education) {
     const db = await initDB();
+    const all = await db.getAll("educations");
+    const dup = all.find(e => e.school === edu.school && e.degree === edu.degree && e.id !== edu.id);
+    if (dup) edu.id = dup.id;
     await db.put("educations", edu);
   },
   async getEducations() {
@@ -208,4 +246,17 @@ export const dbOps = {
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, topK).map((s) => s.chunk);
   },
+
+  async saveJobApplication(app: JobApplication) {
+    const db = await initDB();
+    await db.put("job_applications", app);
+  },
+  async getJobApplications() {
+    const db = await initDB();
+    return db.getAll("job_applications");
+  },
+  async deleteJobApplication(id: string) {
+    const db = await initDB();
+    await db.delete("job_applications", id);
+  }
 };

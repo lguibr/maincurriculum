@@ -5,6 +5,7 @@ import Dashboard from "./routes/Dashboard";
 import Tailor from "./routes/Tailor";
 import Improve from "./routes/Improve";
 import Memory from "./routes/Memory";
+import Timeline from "./routes/Timeline";
 import { usePipelineStore } from "./store/usePipelineStore";
 import { useProfileStore } from "./store/useProfileStore";
 import { dbOps } from "./db/indexedDB";
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="tailor" element={<Tailor />} />
           <Route path="improve" element={<Improve />} />
           <Route path="memory" element={<Memory />} />
+          <Route path="timeline" element={<Timeline />} />
         </Route>
       </Routes>
     </BrowserRouter>

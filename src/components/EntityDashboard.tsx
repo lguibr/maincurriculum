@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useEntityStore } from "../store/useEntityStore";
 import { fetchEntities, deleteEntity } from "../actions/pipelineActions";
-import { X, Briefcase, Code, Database, Library, Calendar, ChevronRight, GraduationCap } from "lucide-react";
+import { X, Briefcase, Code, Database, Library, Calendar, ChevronRight, GraduationCap, Edit3 } from "lucide-react";
+import { EntityRefinerChat } from "./EntityRefinerChat";
 
 export function EntityDashboard() {
   const entities = useEntityStore((s) => s.entities);
   const [activeSkill, setActiveSkill] = useState<string | null>(null);
+  const [refiningEntity, setRefiningEntity] = useState<{type: "experience" | "project" | "education", data: any} | null>(null);
 
   useEffect(() => {
     fetchEntities();
@@ -21,6 +23,16 @@ export function EntityDashboard() {
       <div className="p-4 text-sm text-muted-foreground animate-pulse">
         Loading architectural context...
       </div>
+    );
+  }
+
+  if (refiningEntity) {
+    return (
+      <EntityRefinerChat 
+         entityType={refiningEntity.type}
+         entityData={refiningEntity.data}
+         onClose={() => setRefiningEntity(null)}
+      />
     );
   }
 
@@ -93,13 +105,21 @@ export function EntityDashboard() {
                 key={exp.id}
                 className={`relative p-5 rounded-xl border bg-card/50 hover:bg-card border-border/50 transition-colors group ${!hasActiveSkill ? 'opacity-30' : ''}`}
               >
-                <button
-                  onClick={() => deleteEntity("experience", exp.id)}
-                  className="absolute top-4 right-4 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-                <div className="flex justify-between items-start mb-2 pr-6">
+                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                  <button
+                    onClick={() => setRefiningEntity({ type: "experience", data: exp })}
+                    className="text-muted-foreground hover:text-primary transition-all p-1"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => deleteEntity("experience", exp.id)}
+                    className="text-muted-foreground hover:text-destructive transition-all p-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex justify-between items-start mb-2 pr-12">
                   <div>
                     <h5 className="font-bold text-base text-foreground">{exp.role}</h5>
                     <p className="text-sm text-primary font-medium">{exp.company}</p>
@@ -150,15 +170,23 @@ export function EntityDashboard() {
               return (
               <div
                 key={proj.id}
-                className={`relative p-5 rounded-xl border bg-card/30 border-border/50 transition-colors ${!hasActiveSkill ? 'opacity-30' : ''}`}
+                className={`relative p-5 rounded-xl border bg-card/30 hover:bg-card/50 border-border/50 transition-colors group ${!hasActiveSkill ? 'opacity-30' : ''}`}
               >
-                <button
-                  onClick={() => deleteEntity("project", proj.id)}
-                  className="absolute top-4 right-4 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-                <div className="flex justify-between items-start mb-2 pr-6">
+                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                  <button
+                    onClick={() => setRefiningEntity({ type: "project", data: proj })}
+                    className="text-muted-foreground hover:text-primary transition-all p-1"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => deleteEntity("project", proj.id)}
+                    className="text-muted-foreground hover:text-destructive transition-all p-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex justify-between items-start mb-2 pr-12">
                   <h5 className="font-bold text-base text-foreground flex items-center">
                     <ChevronRight className="w-4 h-4 text-primary mr-1" /> {proj.repo_name}
                   </h5>
@@ -206,13 +234,21 @@ export function EntityDashboard() {
                 key={edu.id}
                 className="relative p-5 rounded-xl border bg-card/50 hover:bg-card border-border/50 transition-colors group"
               >
-                <button
-                  onClick={() => deleteEntity("education", edu.id)}
-                  className="absolute top-4 right-4 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-                <div className="flex justify-between items-start mb-2 pr-6">
+                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                  <button
+                    onClick={() => setRefiningEntity({ type: "education", data: edu })}
+                    className="text-muted-foreground hover:text-primary transition-all p-1"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => deleteEntity("education", edu.id)}
+                    className="text-muted-foreground hover:text-destructive transition-all p-1"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex justify-between items-start mb-2 pr-12">
                   <div>
                     <h5 className="font-bold text-base text-foreground">{edu.degree}</h5>
                     <p className="text-sm text-primary font-medium">{edu.school}</p>

@@ -8,22 +8,33 @@ import { Textarea } from "../components/ui/textarea";
 import { Card } from "../components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { ScrollArea } from "../components/ui/scroll-area";
+import { v4 as uuidv4 } from "uuid";
+
+interface JobApp {
+  id: string;
+  company: string;
+  role: string;
+  job_description: string;
+  tailored_cv: string;
+  cover_letter: string;
+  qa_prep: string;
+  created_at: number;
+}
 
 export default function Tailor() {
   const [jobDesc, setJobDesc] = useState("");
   const [employerQuestions, setEmployerQuestions] = useState("");
+  const [catalog, setCatalog] = useState<JobApp[]>([]);
+  const [viewState, setViewState] = useState<"new" | "catalog">("new");
   const [outputs, setOutputs] = useState({ tailoredCv: "", coverLetter: "", employerAnswers: "" });
   const [activeTab, setActiveTab] = useState<"cv" | "letter" | "qa">("cv");
   const [loading, setLoading] = useState(false);
   const [profileId, setProfileId] = useState<number | null>(null);
 
   useEffect(() => {
-    dbOps
-      .getProfile("main")
-      .then((prof) => {
-        if (prof) setProfileId("main" as any);
-      })
-      .catch(console.error);
+    dbOps.getJobApplications().then(apps => {
+       if (apps) setCatalog(apps.sort((a,b) => b.created_at - a.created_at));
+    });
   }, []);
 
   const handleTailor = async () => {
@@ -66,11 +77,44 @@ ${jobDesc}
           : Promise.resolve(""),
       ]);
 
+      const extractMetaPrompt = `Extract a JSON from this Job Description determining {"company": "Company Name", "role": "Job Title"}. If missing, use "Unknown".\nJD:\n${jobDesc}`;
+      const metaStr = await GeminiInference.generate(extractMetaPrompt, "json", "gemini-flash-latest");
+      let company = "Unknown Company", role = "Unknown Role";
+      try {
+         const m = metaStr.match(/\{[\s\S]*\}/);
+         if (m) {
+           const parsed = JSON.parse(m[0]);
+           company = parsed.company;
+           role = parsed.role;
+         }
+      } catch (ex) {}
+
+      const newApp: JobApp = {
+         id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(),
+         company,
+         role,
+         job_description: jobDesc,
+         tailored_cv: cvRes,
+         cover_letter: coverRes,
+         qa_prep: qsRes,
+         created_at: Date.now()
+      };
+
+      await dbOps.saveJobApplication(newApp);
+      const apps = await dbOps.getJobApplications();
+      setCatalog(apps.sort((a,b) => b.created_at - a.created_at));
+
       setOutputs({ tailoredCv: cvRes, coverLetter: coverRes, employerAnswers: qsRes });
     } catch (e) {
       console.error(e);
     }
     setLoading(false);
+  };
+
+  const loadApplication = (app: JobApp) => {
+     setJobDesc(app.job_description);
+     setOutputs({ tailoredCv: app.tailored_cv, coverLetter: app.cover_letter, employerAnswers: app.qa_prep });
+     setViewState("new");
   };
 
   const getActiveContent = () => {
@@ -83,46 +127,72 @@ ${jobDesc}
 
   return (
     <div className="h-full flex gap-4 p-4 overflow-hidden print:h-auto print:overflow-visible print:block print:p-0">
-      {/* Left Pane: Input Forms */}
-      <Card className="w-1/3 flex flex-col overflow-hidden print:hidden border-border/40 bg-background/40 backdrop-blur-xl shadow-2xl">
-        <ScrollArea className="flex-1">
-          <div className="flex flex-col gap-4 p-4">
-            <div className="flex items-center gap-2 text-primary font-bold">
-              <Briefcase className="w-5 h-5" /> Target Job Description
-            </div>
-            <Textarea
-              value={jobDesc}
-              onChange={(e) => setJobDesc(e.target.value)}
-              placeholder="Paste the target job description here..."
-              className="min-h-[250px] resize-none bg-background/50 border-border/40 focus-visible:ring-primary/50"
-            />
-
-            <div className="flex items-center gap-2 text-primary font-bold mt-2">
-              <MessageSquare className="w-5 h-5" /> Employer Questions (Optional)
-            </div>
-            <Textarea
-              value={employerQuestions}
-              onChange={(e) => setEmployerQuestions(e.target.value)}
-              placeholder="e.g. 'Why do you want to work here?' or 'What is your salary expectation?'..."
-              className="min-h-[150px] resize-none bg-background/50 border-border/40 focus-visible:ring-primary/50"
-            />
-          </div>
-        </ScrollArea>
-        <div className="p-4 border-t border-border/40 bg-background/60">
-          <Button
-            onClick={handleTailor}
-            disabled={loading || !jobDesc}
-            className="w-full h-12 font-bold shadow-lg transition-all"
-            size="lg"
-          >
-            {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin mr-2" />
-            ) : (
-              <FileSignature className="w-5 h-5 mr-2" />
-            )}
-            {loading ? "Agent is writing..." : "Generate RAG Application"}
-          </Button>
+      {/* Left Pane: Input Forms / Catalog */}
+      <Card className="w-1/3 flex flex-col overflow-hidden print:hidden border-border/40 bg-background/40 backdrop-blur-xl shadow-2xl relative">
+        <div className="flex bg-muted/30 border-b border-border/40 shrink-0 p-2 gap-2">
+           <Button variant={viewState === "new" ? "secondary" : "ghost"} className="flex-1 font-bold text-xs" onClick={() => setViewState("new")}>New Generator</Button>
+           <Button variant={viewState === "catalog" ? "secondary" : "ghost"} className="flex-1 font-bold text-xs" onClick={() => setViewState("catalog")}>Archive Hub ({catalog.length})</Button>
         </div>
+
+        {viewState === "new" ? (
+          <>
+            <ScrollArea className="flex-1">
+              <div className="flex flex-col gap-4 p-4">
+                <div className="flex items-center gap-2 text-primary font-bold">
+                  <Briefcase className="w-5 h-5" /> Target Job Description
+                </div>
+                <Textarea
+                  value={jobDesc}
+                  onChange={(e) => setJobDesc(e.target.value)}
+                  placeholder="Paste the target job description here..."
+                  className="min-h-[250px] resize-none bg-background/50 border-border/40 focus-visible:ring-primary/50"
+                />
+
+                <div className="flex items-center gap-2 text-primary font-bold mt-2">
+                  <MessageSquare className="w-5 h-5" /> Employer Questions (Optional)
+                </div>
+                <Textarea
+                  value={employerQuestions}
+                  onChange={(e) => setEmployerQuestions(e.target.value)}
+                  placeholder="e.g. 'Why do you want to work here?' or 'What is your salary expectation?'..."
+                  className="min-h-[150px] resize-none bg-background/50 border-border/40 focus-visible:ring-primary/50"
+                 />
+              </div>
+            </ScrollArea>
+            <div className="p-4 border-t border-border/40 bg-background/60">
+              <Button
+                onClick={handleTailor}
+                disabled={loading || !jobDesc}
+                className="w-full h-12 font-bold shadow-lg transition-all"
+                size="lg"
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                ) : (
+                  <FileSignature className="w-5 h-5 mr-2" />
+                )}
+                {loading ? "Agent is writing..." : "Generate RAG Application"}
+              </Button>
+            </div>
+          </>
+        ) : (
+           <ScrollArea className="flex-1 bg-background/20">
+              <div className="p-4 space-y-3">
+                 {catalog.map(app => (
+                    <div key={app.id} className="p-4 bg-card/60 hover:bg-card border border-border/50 rounded-xl cursor-pointer transition-colors relative group" onClick={() => loadApplication(app)}>
+                       <h4 className="font-bold text-foreground truncate">{app.role}</h4>
+                       <p className="text-primary text-sm font-medium">{app.company}</p>
+                       <p className="text-xs text-muted-foreground mt-2">{new Date(app.created_at).toLocaleDateString()}</p>
+                       <button 
+                         className="absolute top-4 right-4 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1"
+                         onClick={async (e) => { e.stopPropagation(); await dbOps.deleteJobApplication(app.id); setCatalog(catalog.filter(c => c.id !== app.id)); }}
+                       >✕</button>
+                    </div>
+                 ))}
+                 {catalog.length === 0 && <p className="text-muted-foreground text-sm italic text-center mt-10">No applications exported yet.</p>}
+              </div>
+           </ScrollArea>
+        )}
       </Card>
 
       {/* Right Pane: Output with Tabs */}

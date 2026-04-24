@@ -173,6 +173,8 @@ export const startAgent = async (selectedRepos?: any[]) => {
               repo_name: repo.name,
               description: repo.description || "",
               raw_text: codebaseStr,
+              start_date: repo.createdAt ? repo.createdAt.split('T')[0] : null,
+              end_date: repo.updatedAt ? repo.updatedAt.split('T')[0] : null,
               skills: [],
               last_synced_at: Date.now(),
             };
@@ -265,6 +267,92 @@ export const deleteEntity = async (type: "skill" | "experience" | "education" | 
   }
 };
 
+async function generateValidatedQuestion(topic: string, cvContext: string, history: string, model: string): Promise<string> {
+  const maxLoops = 3;
+  let finalQuestion = "";
+  
+  for (let attempts = 0; attempts < maxLoops; attempts++) {
+      const qPrompt = `You are an elite Staff Engineer interviewing a candidate.
+Topic focus: ${topic}. 
+Context: ${cvContext}
+History: ${history}
+
+Generate ONE incredibly specific, deep-dive technical question probing architectural decisions, trade-offs, or complex edge cases related to ${topic}. Do not repeat history. Output ONLY the question text.`;
+      
+      const candidateQ = await GeminiInference.generate(qPrompt, "text", model);
+      
+      const answerPrompt = `You are a strict evaluator. Attempt to thoroughly answer the following question relying EXCLUSIVELY on the provided Candidate Context.
+Context: ${cvContext}
+Question: ${candidateQ}
+
+If the context lacks the specific technical depth, metrics, or architectural details to answer fully, reply EXACTLY with "INSUFFICIENT_CONTEXT". Otherwise, provide the answer.`;
+      
+      const aiAnswer = await GeminiInference.generate(answerPrompt, "text", model);
+      
+      if (aiAnswer.includes("INSUFFICIENT_CONTEXT")) {
+         const restructurePrompt = `A gap was found in the candidate's context regarding this question: ${candidateQ}
+Rewrite the question to specifically ask the candidate to fill in this missing knowledge. Be professional, direct, and elite. Output ONLY the question text.`;
+         finalQuestion = await GeminiInference.generate(restructurePrompt, "text", model);
+         break;
+      } else {
+         if (attempts === maxLoops - 1) {
+            finalQuestion = candidateQ; 
+         }
+      }
+  }
+  return finalQuestion;
+}
+
+async function refineUserAnswer(question: string, rawAnswer: string, model: string): Promise<string> {
+  const prompt = `The user was asked an elite technical interview question: "${question}"
+They provided this raw answer: "${rawAnswer}"
+
+Act as a Principal Engineer. Rewrite, sharpen, and professionalize this answer so it fits perfectly as a dense, high-impact bullet point or executive summary snippet in a Master CV context flow. Improve the vocabulary but preserve the core truth. Output ONLY the refined answer text.`;
+  return await GeminiInference.generate(prompt, "text", model);
+}
+
+async function updateEntitiesFromInterview(historyText: string, model: string) {
+    const { entities } = useEntityStore.getState();
+    const currentData = JSON.stringify(entities, null, 2).substring(0, 10000); 
+    
+    usePipelineStore.getState().setPipelineState({ currentPhase: "Syncing Knowledge Graph..." });
+
+    const prompt = `You are an AI synchronizing a database.
+Current Database Context:
+${currentData}
+
+Recent Interview Insights:
+${historyText}
+
+Based on the Interview Insights, output a STRICT JSON object containing ONLY new or updated entities.
+If a project gained a new skill, return that project object with the updated skills array.
+If a new skill was discovered, return the skill object.
+If an experience needs its description improved with details from the interview, return it.
+Must follow this exact schema (only returning what changed/added):
+{"skills": [...], "experiences": [...], "projects": [...]}
+Do not return identical untouched entities. Reply tightly with JSON only.`;
+
+    const result = await GeminiInference.generate(prompt, "json", "gemini-flash-latest"); // fast matching
+    try {
+      const jsonMatch = result.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+         const parsed = JSON.parse(jsonMatch[0]);
+         if (parsed.skills) {
+            for (const sk of parsed.skills) await dbOps.saveSkill(sk);
+         }
+         if (parsed.experiences) {
+            for (const exp of parsed.experiences) await dbOps.saveExperience(exp);
+         }
+         if (parsed.projects) {
+            for (const proj of parsed.projects) await dbOps.saveProject(proj);
+         }
+         await fetchEntities();
+      }
+    } catch(e) {
+      console.warn("Failed to sync knowledge graph from interview", e);
+    }
+}
+
 export const processCvAndInterview = async (cvText: string) => {
   const { setPipelineState } = usePipelineStore.getState();
   const { setInterviewState } = useInterviewStore.getState();
@@ -287,35 +375,51 @@ export const processCvAndInterview = async (cvText: string) => {
   });
 
   try {
-    const parsePrompt = `Extract ALL technical skills, work experiences, and academic educations from the following CV. Do not limit the count. Output as strict JSON formatted exactly like: {"skills": [{"id": "uuid", "name": "Python", "type": "Language"}], "experiences": [{"id": "uuid", "company":"X", "role":"Dev", "start_date":"2020", "end_date":"2021", "description":"Did stuff", "skills":[]}], "educations": [{"id": "uuid", "school": "X", "degree": "BSCS", "start_date": "2015", "end_date": "2019", "description": "Studied computer science"}]}.\nCV:\n${cvText}`;
+    const promptEducation = `Extract ALL academic educations from the following CV. Output as strict JSON formatted exactly like: {"educations": [{"id": "uuid", "school": "X", "degree": "BSCS", "start_date": "2015-01-01", "end_date": "2019-12-01", "description": "Studied computer science"}]}. For dates, you MUST use 'YYYY-MM-DD' format. If month is unknown, default to '-01-01'. Use 'Present' or null if ongoing.\nCV:\n${cvText}`;
+    
+    const promptExperience = `Extract ALL work experiences and standalone projects from the following CV. Output as strict JSON formatted exactly like: {"experiences": [{"id": "uuid", "company":"X", "role":"Dev", "start_date":"2020-01-01", "end_date":"2021-12-01", "description":"Did stuff", "skills":[]}]}. For dates, you MUST use 'YYYY-MM-DD' format. If month is unknown, default to '-01-01'. Use 'Present' or null if ongoing.\nCV:\n${cvText}`;
+
+    const promptSkills = `Extract ALL technical skills and tools from the following CV. Output as strict JSON formatted exactly like: {"skills": [{"id": "uuid", "name": "Python", "type": "Language"}]}.\nCV:\n${cvText}`;
 
     let extractModel = "gemini-flash-latest"; // default
-    if (cloudTier === "smart") extractModel = "gemini-flash-latest";
-    if (cloudTier === "balanced") extractModel = "gemini-flash-lite-latest";
+    if (cloudTier === "smart") extractModel = "gemini-pro-latest";
+    if (cloudTier === "balanced") extractModel = "gemini-flash-latest";
     if (cloudTier === "widely") extractModel = "gemini-flash-lite-latest";
 
-    const llmResult = await GeminiInference.generate(parsePrompt, "json", extractModel);
+    // Run parallel extractions using the fast model for parsing efficiency
+    const [eduResult, expResult, skillsResult] = await Promise.all([
+      GeminiInference.generate(promptEducation, "json", "gemini-flash-latest"),
+      GeminiInference.generate(promptExperience, "json", "gemini-flash-latest"),
+      GeminiInference.generate(promptSkills, "json", "gemini-flash-latest")
+    ]);
 
-    try {
-      const jsonMatch = llmResult.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.skills) {
-          for (const sk of parsed.skills) await dbOps.saveSkill(sk);
+    const saveParsedJson = async (llmResult: string) => {
+      try {
+        const jsonMatch = llmResult.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.skills) {
+            for (const sk of parsed.skills) await dbOps.saveSkill(sk);
+          }
+          if (parsed.experiences) {
+            for (const exp of parsed.experiences) await dbOps.saveExperience(exp);
+          }
+          if (parsed.educations) {
+            for (const edu of parsed.educations) await dbOps.saveEducation(edu);
+          }
         }
-        if (parsed.experiences) {
-          for (const exp of parsed.experiences) await dbOps.saveExperience(exp);
-        }
-        if (parsed.educations) {
-          for (const edu of parsed.educations) await dbOps.saveEducation(edu);
-        }
+      } catch (e) {
+        console.warn("Failed to parse extracted JSON from Gemini snippet", e);
       }
-    } catch (e) {
-      console.warn("Failed to parse extracted JSON from Gemini", e);
-    }
+    };
 
-    const interviewPrompt = `Based on this CV:\n${cvText}\n\nGenerate ONE highly technical, deep-dive interview question about system architecture or their specific experiences. Provide only the question text.`;
-    const firstQuestion = await GeminiInference.generate(interviewPrompt, "text", extractModel);
+    await Promise.all([
+      saveParsedJson(eduResult),
+      saveParsedJson(expResult),
+      saveParsedJson(skillsResult)
+    ]);
+
+    const firstQuestion = await generateValidatedQuestion("Education and Academic Background", cvText, "", extractModel);
 
     setPipelineState({ currentPhase: "Interview" });
     setInterviewState({ currentQuestion: firstQuestion });
@@ -368,30 +472,46 @@ export const submitAnswer = async (answer: string) => {
   const { baseCv, cloudTier } = useProfileStore.getState();
 
   const prevQ = currentQuestion || "";
-  const newHistory = [...interviewHistory, { q: prevQ, a: answer }];
-
-  // Clear question to trigger loading state in UI
-  setInterviewState({ currentQuestion: null, interviewHistory: newHistory });
-  setPipelineState({ currentPhase: `Interview ${newHistory.length}/10` }); // Fixed 1-based indexing glitch
+  
+  // OptimISTIC temporary history for UI flow
+  const tempHistory = [...interviewHistory, { q: prevQ, a: answer }];
+  setInterviewState({ currentQuestion: null, interviewHistory: tempHistory });
+  setPipelineState({ currentPhase: `Refining Answer ${tempHistory.length}/10...` });
 
   try {
     let extractModel = "gemini-flash-latest";
-    if (cloudTier === "smart") extractModel = "gemini-flash-latest";
-    if (cloudTier === "balanced") extractModel = "gemini-flash-lite-latest";
+    if (cloudTier === "smart") extractModel = "gemini-pro-latest";
+    if (cloudTier === "balanced") extractModel = "gemini-flash-latest";
     if (cloudTier === "widely") extractModel = "gemini-flash-lite-latest";
+
+    // Refine the Answer instantly using the LLM 
+    const refinedAnswer = await refineUserAnswer(prevQ, answer, extractModel);
+    const newHistory = [...interviewHistory, { q: prevQ, a: refinedAnswer }];
+    
+    // Lock in the refined history
+    setInterviewState({ interviewHistory: newHistory });
+    setPipelineState({ currentPhase: `Interview ${newHistory.length}/10` });
 
     if (newHistory.length < 10) {
       const historyText = newHistory
         .map((h, i) => `Q${i + 1}: ${h.q}\nA${i + 1}: ${h.a}`)
         .join("\n\n");
-      const interviewPrompt = `Based on this CV:\n${baseCv}\n\nAnd the previous Interview Q&A:\n${historyText}\n\nGenerate ONE highly technical, deep-dive interview question. Do not repeat previous questions. Provide only the question text.`;
-      const nextQuestion = await GeminiInference.generate(interviewPrompt, "text", extractModel);
+      
+      let topic = "Professional Work Experience and Architecture";
+      if (newHistory.length < 3) topic = "Technical Skills (Languages, Frameworks)";
+      else if (newHistory.length < 6) topic = "Specific Repositories and Projects";
+        
+      const nextQuestion = await generateValidatedQuestion(topic, baseCv, historyText, extractModel);
       setInterviewState({ currentQuestion: nextQuestion });
     } else {
-      setPipelineState({ currentPhase: "Generating Final CV" });
       const historyText = newHistory
         .map((h, i) => `Q${i + 1}: ${h.q}\nA${i + 1}: ${h.a}`)
         .join("\n\n");
+      
+      // Update the structural database before we rewrite the visual CV
+      await updateEntitiesFromInterview(historyText, extractModel);
+
+      setPipelineState({ currentPhase: "Generating Final CV" });
       const success = await startImprover(
         `The candidate had a technical interview answering 10 questions deeply about their background. Incorporate this deeper knowledge into their CV implicitly by strengthening their bullet points or summary:\n\n${historyText}`,
         baseCv
