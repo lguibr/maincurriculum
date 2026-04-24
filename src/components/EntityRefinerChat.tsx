@@ -27,8 +27,23 @@ export function EntityRefinerChat({
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentEntityState, setCurrentEntityState] = useState(entityData);
+  const [manualJsonStr, setManualJsonStr] = useState(JSON.stringify(entityData, null, 2));
   const { cloudTier } = useProfileStore();
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  const handleManualSave = async () => {
+    try {
+      const parsedEntity = JSON.parse(manualJsonStr);
+      setCurrentEntityState(parsedEntity);
+      if (entityType === "experience") await dbOps.saveExperience(parsedEntity);
+      if (entityType === "project") await dbOps.saveProject(parsedEntity);
+      if (entityType === "education") await dbOps.saveEducation(parsedEntity);
+      await fetchEntities();
+      setMessages(prev => [...prev, { role: "system", content: "Entity state manually overwritten successfully!" }]);
+    } catch(e) {
+      setMessages(prev => [...prev, { role: "system", content: "Failed to parse manual JSON: " + (e as Error).message }]);
+    }
+  };
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -46,20 +61,17 @@ export function EntityRefinerChat({
 
     try {
       const historyStr = messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n");
-      const systemPrompt = `You are an AI Curriculum Editor. You are currently refining a single entity of type "${entityType}".
-Current Entity JSON state:
-\`\`\`json
-${JSON.stringify(currentEntityState, null, 2)}
-\`\`\`
-
-The user will provide instructions to modify, clarify, or expand this entity.
-Your response MUST consist of two parts:
-1. A brief, conversational confirmation of what you changed (no JSON).
-2. The EXACT updated JSON block at the very end of your response, starting with "UPDATED_JSON:" followed by the raw JSON object matching the current schema perfectly. Do NOT wrap it in markdown code blocks, just raw JSON.
-
-Example Response:
-I've updated the dates and added the new keyword to the description!
-UPDATED_JSON:{"id":"...","company":"...","start_date":"..."}`;
+      const systemPrompt = "You are an AI Curriculum Editor. You are currently refining a single entity of type \"" + entityType + "\".\n" +
+"Current Entity JSON state:\n" +
+"```json\n" +
+JSON.stringify(currentEntityState, null, 2) + "\n" +
+"```\n\nThe user will provide instructions to modify, clarify, or expand this entity.\n" +
+"Your response MUST consist of two parts:\n" +
+"1. A brief, conversational confirmation of what you changed (no JSON).\n" +
+"2. The EXACT updated JSON block at the very end of your response, starting with \"UPDATED_JSON:\" followed by the raw JSON object matching the current schema perfectly. Do NOT wrap it in markdown code blocks, just raw JSON.\n\n" +
+"Example Response:\n" +
+"I've updated the dates and added the new keyword to the description!\n" +
+"UPDATED_JSON:{\"id\":\"...\",\"company\":\"...\",\"start_date\":\"...\"}";
 
       const fullPrompt = `${systemPrompt}\n\nChat History:\n${historyStr}\n\nUSER: ${userMsg}\nASSISTANT:`;
       const aiResponse = await GeminiInference.generate(fullPrompt, "text", modelParams);
@@ -77,6 +89,7 @@ UPDATED_JSON:{"id":"...","company":"...","start_date":"..."}`;
            updatedJsonStr = updatedJsonStr.replace(/```json/g, "").replace(/```/g, "").trim();
            parsedEntity = JSON.parse(updatedJsonStr);
            setCurrentEntityState(parsedEntity);
+           setManualJsonStr(JSON.stringify(parsedEntity, null, 2));
            
            // Automatically save to DB
            if (entityType === "experience") await dbOps.saveExperience(parsedEntity);
@@ -114,12 +127,20 @@ UPDATED_JSON:{"id":"...","company":"...","start_date":"..."}`;
       </div>
 
       <div className="flex flex-col flex-1 overflow-hidden min-h-0 bg-transparent relative">
-        {/* State Preview (Readonly Visualization) */}
+        {/* State Preview (Editable Override) */}
         <div className="p-3 bg-card border-b border-border/50 shrink-0">
-           <Label className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2 block">Live Entity State</Label>
-           <div className="bg-muted/30 p-2 rounded-lg border border-border/50 max-h-[150px] overflow-y-auto custom-scrollbar">
-             <pre className="text-[10px] font-mono text-primary/80 whitespace-pre-wrap">{JSON.stringify(currentEntityState, null, 2)}</pre>
+           <div className="flex justify-between items-center mb-2">
+             <Label className="text-[10px] uppercase tracking-widest text-muted-foreground block text-cyan-400">Live Entity State (Editable)</Label>
+             <Button variant="outline" size="sm" className="h-6 text-[10px] px-2 text-cyan-400 border-cyan-800 hover:bg-cyan-900" onClick={handleManualSave}>
+               <Save className="w-3 h-3 mr-1" /> Force Save JSON
+             </Button>
            </div>
+           <Textarea 
+             className="font-mono text-[10px] min-h-[150px] max-h-[250px] bg-muted/30 text-primary/80 custom-scrollbar border border-border/50 p-2" 
+             value={manualJsonStr} 
+             onChange={(e) => setManualJsonStr(e.target.value)} 
+             spellCheck={false}
+           />
         </div>
 
         {/* Chat History */}

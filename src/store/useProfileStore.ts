@@ -11,8 +11,7 @@ export interface ProfileState {
   setBaseCv: (val: string) => void;
   cvViewMode: "raw" | "preview";
   setCvViewMode: (mode: "raw" | "preview") => void;
-  cloudTier: "smart" | "balanced" | "widely";
-  setCloudTier: (tier: "smart" | "balanced" | "widely") => void;
+
   extendedCv: string;
   setExtendedCv: (val: string) => void;
 }
@@ -29,8 +28,7 @@ export const useProfileStore = create<ProfileState>((set) => ({
   setBaseCv: (val) => set({ baseCv: val }),
   cvViewMode: "raw",
   setCvViewMode: (mode) => set({ cvViewMode: mode }),
-  cloudTier: "balanced",
-  setCloudTier: (tier) => set({ cloudTier: tier }),
+
   extendedCv: "",
   setExtendedCv: (val) => set({ extendedCv: val }),
 }));

@@ -20,8 +20,7 @@ export interface AppState {
   setBaseCv: (val: string) => void;
   cvViewMode: "raw" | "preview";
   setCvViewMode: (mode: "raw" | "preview") => void;
-  cloudTier: "smart" | "balanced" | "widely";
-  setCloudTier: (tier: "smart" | "balanced" | "widely") => void;
+
   extendedCv: string;
   setExtendedCv: (val: string) => void;
 
@@ -32,7 +31,7 @@ export interface AppState {
   activeNodes: string[];
   currentPhase: string;
   currentQuestion: string | null;
-  interviewHistory: { q: string; a: string }[];
+  interviewHistory: { q: string; a: string; type?: "critique" | "interview" }[];
   isWizardComplete: boolean;
   langgraphEvents: Record<string, unknown>[];
   langgraphValues: Record<string, unknown>;

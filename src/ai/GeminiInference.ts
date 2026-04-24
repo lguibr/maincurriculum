@@ -14,7 +14,7 @@ export class GeminiInference {
 
     const strictPrompt =
       format === "json"
-        ? `You are an extraction system. OUTPUT ONLY VALID JSON. Do NOT output markdown formatting like \`\`\`json. DO NOT output conversational text.\nPROMPT:\n${prompt}`
+        ? "You are an extraction system. OUTPUT ONLY VALID JSON. Do NOT output markdown formatting like ```json. DO NOT output conversational text.\nPROMPT:\n" + prompt
         : prompt;
 
     console.log(`[Cloud] Sending prompt to ${modelName}...`);
