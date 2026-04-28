@@ -5,6 +5,7 @@ import { dbOps } from "../db/indexedDB";
 import { GeminiInference } from "../ai/GeminiInference";
 import { useProfileStore } from "../store/useProfileStore";
 import { ImproveChat } from "../features/improve/components/ImproveChat";
+import { MermaidChart } from "../features/timeline/components/MermaidChart";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -163,7 +164,23 @@ ${currentCvContent}
             {draftMode === "preview" ? (
               <div className="absolute inset-0 p-8 overflow-y-auto w-full max-w-none prose prose-sm prose-invert prose-blue print:p-0 print:h-auto print:overflow-visible">
                 {extendedCv ? (
-                  <ReactMarkdown>{extendedCv}</ReactMarkdown>
+                  <ReactMarkdown
+                    components={{
+                      code({ node, inline, className, children, ...props }: any) {
+                        const match = /language-(\w+)/.exec(className || "");
+                        if (!inline && match && match[1] === "mermaid") {
+                          return <MermaidChart chart={String(children).replace(/\n$/, "")} />;
+                        }
+                        return (
+                          <code className={className} {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                    }}
+                  >
+                    {extendedCv}
+                  </ReactMarkdown>
                 ) : (
                   <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground/50">
                     CV Empty. Chat with the agent or type text manually.

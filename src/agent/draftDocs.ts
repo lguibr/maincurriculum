@@ -24,14 +24,15 @@ export async function draftDocs(state: AgentStateType, config?: RunnableConfig) 
 
   const stream = await ai.models.generateContentStream({
     model: "gemini-flash-lite-latest",
-    contents: \`Draft a highly tailored CV and Cover Letter based on the following inputs.
-JD Analysis: \${JSON.stringify(state.jd_analysis)}
-Base CV: \${state.base_cv}
-Selected Projects Context: \${JSON.stringify(state.repo_deep_dives)}
-Critique Feedback (if any): \${state.critique_feedback || "None"}
-\${questionsInput}
+    contents: `Draft a highly tailored CV and Cover Letter based on the following inputs.
+JD Analysis: ${JSON.stringify(state.jd_analysis)}
+Base CV: ${state.base_cv}
+Selected Projects Context: ${JSON.stringify(state.repo_deep_dives)}
+Critique Feedback (if any): ${state.critique_feedback || "None"}
+${questionsInput}
 
-Output a JSON object with 'draft_cv' (markdown format) and 'draft_cover_letter' (markdown format)\${questionsPrompt}. Ensure the tone matches the requested vibe. Output ONLY valid JSON.\`,
+Output a JSON object with 'draft_cv' (markdown format) and 'draft_cover_letter' (markdown format)${questionsPrompt}.
+IMPORTANT: Do not include any conversational filler or introductions (e.g., "Here is the tailored CV...") in the markdown strings. Start immediately with the document content (e.g., the title or your name). Ensure the tone matches the requested vibe. Output ONLY valid JSON.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {

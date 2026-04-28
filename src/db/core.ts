@@ -5,7 +5,7 @@ let dbPromise: Promise<IDBPDatabase<CurriculumDB>> | null = null;
 
 export const initDB = () => {
   if (!dbPromise) {
-    dbPromise = openDB<CurriculumDB>("CurriculumDB", 2, {
+    dbPromise = openDB<CurriculumDB>("CurriculumDB", 3, {
       upgrade(db) {
         if (!db.objectStoreNames.contains("profiles"))
           db.createObjectStore("profiles", { keyPath: "id" });
@@ -23,6 +23,8 @@ export const initDB = () => {
         }
         if (!db.objectStoreNames.contains("job_applications"))
           db.createObjectStore("job_applications", { keyPath: "id" });
+        if (!db.objectStoreNames.contains("interview_insights"))
+          db.createObjectStore("interview_insights", { keyPath: "id" });
       },
     });
   }

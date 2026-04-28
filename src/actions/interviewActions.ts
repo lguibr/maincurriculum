@@ -33,7 +33,7 @@ export const processCvAndInterview = async (cvText: string) => {
 
     const promptExperience = `Extract ONLY structural employment periods (companies worked for) from the following CV. Output as strict JSON formatted exactly like: {"experiences": [{"id": "uuid", "company":"X", "role":"Dev", "start_date":"2020-01-01", "end_date":"2021-12-01", "description":"Summary of employment", "skills":[]}]}. Do NOT mix specific sub-projects into the description if they are distinct systems. Use 'YYYY-MM-DD' format for dates.\nCV:\n${cvText}`;
 
-    const promptProjects = `Extract ALL notable technical projects mentioned in the CV (including internal corporate/company projects, like at Trebu or Paradigm, as well as standalone/GitHub projects). Output as strict JSON formatted exactly like: {"projects": [{"id": "uuid", "name": "Project X", "repo_name": "Project X", "associated_context": "Company Name or Personal", "raw_text": "What it is and what was built", "skills":[]}]}. Ensure every project has a 'name'.\nCV:\n${cvText}`;
+    const promptProjects = `Extract ONLY distinct standalone technical projects mentioned in the CV. IMPORTANT: DO NOT extract projects that are just your GitHub repositories. DO NOT extract internal corporate/company projects from your work experiences (e.g. do not extract projects done at companies you worked for). This is to avoid repetition. Output as strict JSON formatted exactly like: {"projects": [{"id": "uuid", "name": "Project X", "repo_name": "Project X", "associated_context": "Personal", "raw_text": "What it is and what was built", "skills":[]}]}. Ensure every project has a 'name'.\nCV:\n${cvText}`;
 
     const promptSkills = `Extract ALL technical skills and tools from the following CV. Output as strict JSON formatted exactly like: {"skills": [{"id": "uuid", "name": "Python", "type": "Language"}]}.\nCV:\n${cvText}`;
 
@@ -201,6 +201,15 @@ export const submitAnswer = async (answer: string) => {
 
     // Refine the Answer instantly using the LLM 
     const refinedAnswer = await refineUserAnswer(prevQ, rawAnswer, proModel);
+
+    // Persist permanently to Global Knowledge Graph
+    await dbOps.saveInterviewInsight({
+      id: "insight_" + Math.random().toString(36).substring(2, 9),
+      question: prevQ,
+      polished_answer: refinedAnswer,
+      context: "Master CV Orchestrator",
+      timestamp: Date.now()
+    });
 
     // Replace the raw answer with the refined one in our history map
     const newHistory = [...tempHistory];

@@ -1,5 +1,4 @@
 import React, { useRef, useEffect, useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Activity, ChevronDown, ChevronRight, Cpu } from "lucide-react";
 import { usePipelineStore } from "../../store/usePipelineStore";
 
@@ -11,8 +10,12 @@ export function AgentLogViewer() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: "smooth" });
-  }, [inferenceLogs.length]);
+    if (bottomRef.current) {
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 50);
+    }
+  }, [inferenceLogs.length, expandedIds]);
 
   const toggleExpand = (id: string) => {
     setExpandedIds(prev => {
@@ -21,7 +24,6 @@ export function AgentLogViewer() {
         next.delete(id);
       } else {
         next.add(id);
-        // Only allow max 5 expanded at once
         if (next.size > 5) {
           const firstAdded = Array.from(next)[0];
           next.delete(firstAdded);
@@ -40,7 +42,7 @@ export function AgentLogViewer() {
         </span>
         {isRunning && <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />}
       </div>
-      <ScrollArea className="flex-1 p-4 font-mono text-xs text-neutral-300 custom-scrollbar">
+      <div className="flex-1 p-4 font-mono text-xs text-neutral-300 overflow-y-auto custom-scrollbar">
         <div className="space-y-3">
           {inferenceLogs.length === 0 && !isRunning && (
             <div className="text-neutral-600 italic">Waiting for agents...</div>
@@ -87,7 +89,7 @@ export function AgentLogViewer() {
           })}
           <div ref={bottomRef} className="h-1" />
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

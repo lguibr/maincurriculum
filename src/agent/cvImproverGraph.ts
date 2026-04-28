@@ -165,7 +165,8 @@ ${state.critique}
 User Answers:
 ${JSON.stringify(state.user_answers)}
 
-Output the complete rewritten CV in Markdown format. Output ONLY JSON.`,
+Output the complete rewritten CV in Markdown format. Output ONLY JSON.
+IMPORTANT: Do not include any conversational filler or introductions (e.g., "Here is the rewritten CV...") in the rewritten_cv markdown string. Start immediately with the document content (e.g., the title or your name).`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {

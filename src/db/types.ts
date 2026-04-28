@@ -53,7 +53,16 @@ export interface JobApplication {
   tailored_cv: string;
   cover_letter: string;
   qa_prep: string;
+  fit_diagram?: string;
   created_at: number;
+}
+
+export interface InterviewInsight {
+  id: string;
+  question: string;
+  polished_answer: string;
+  context: string; // e.g. "Master CV", "Job: Stripe"
+  timestamp: number;
 }
 
 export interface ProjectChunkEmbedding {
@@ -95,5 +104,9 @@ export interface CurriculumDB extends DBSchema {
   job_applications: {
     key: string;
     value: JobApplication;
+  };
+  interview_insights: {
+    key: string;
+    value: InterviewInsight;
   };
 }

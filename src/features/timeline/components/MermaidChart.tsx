@@ -39,7 +39,7 @@ export const MermaidChart = ({ chart }: { chart: string }) => {
   return (
     <div
       ref={ref}
-      className="mermaid flex justify-center w-full bg-black/30 rounded-xl mb-6 shadow-inner border border-white/10 overflow-x-auto min-h-[100px]"
+      className="mermaid w-full flex justify-center overflow-hidden bg-black/30 rounded-xl mb-6 shadow-inner border border-white/10 print:bg-transparent print:border-none print:shadow-none"
     />
   );
 };

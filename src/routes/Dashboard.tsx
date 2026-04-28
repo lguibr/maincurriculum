@@ -20,34 +20,41 @@ export default function Dashboard() {
             <Logo alt="Logo" className="h-8 w-auto object-contain" />
           </Link>
         </div>
-        <nav className="flex-1 p-4 flex flex-col gap-2">
-          <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
-            Agent Apps
+        <nav className="flex-1 p-4 flex flex-col gap-2 overflow-y-auto custom-scrollbar">
+          <Link
+            to="/"
+            className={`flex items-center px-3 py-2 rounded-lg transition-all ${isActive("/") ? "bg-cyan-500/10 text-cyan-500 font-medium" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
+          >
+            <Home className="w-4 h-4 mr-3" /> Home Dashboard
+          </Link>
+
+          <div className="mt-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Core AI
           </div>
 
           <Link
             to="/tailor"
             className={`flex items-center px-3 py-2 rounded-lg transition-all ${isActive("/tailor") ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
           >
-            <Briefcase className="w-4 h-4 mr-3" /> Job Tailor
+            <Briefcase className="w-4 h-4 mr-3" /> Job Tailor Tools
           </Link>
 
           <Link
             to="/improve"
             className={`flex items-center px-3 py-2 rounded-lg transition-all ${isActive("/improve") ? "bg-blue-500/10 text-blue-500 font-medium" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
           >
-            <FolderGit2 className="w-4 h-4 mr-3" /> CV Improver
+            <FolderGit2 className="w-4 h-4 mr-3" /> Master CV Improver
           </Link>
 
-          <div className="mt-6 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Vector Memory
+          <div className="mt-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Analytics & Memory
           </div>
 
           <Link
             to="/memory"
-            className={`flex items-center px-3 py-2 rounded-lg transition-all ${isActive("/memory") ? "bg-violet-500/10 text-violet-500 font-medium" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
+            className={`flex items-center px-3 py-2 rounded-lg transition-all ${isActive("/memory") ? "bg-emerald-500/10 text-emerald-500 font-medium" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
           >
-            <Database className="w-4 h-4 mr-3" /> Agent Context
+            <Database className="w-4 h-4 mr-3" /> Vector Context
           </Link>
 
           <Link
@@ -58,7 +65,7 @@ export default function Dashboard() {
           </Link>
 
           <div className="mt-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            System
+            System Config
           </div>
           <Link
             to="/onboarding"
@@ -119,13 +126,22 @@ export default function Dashboard() {
             <Link to="/" className="flex items-center hover:opacity-80 transition-opacity">
               <Logo alt="Home Root" className="h-5 w-auto" />
             </Link>
-            <ChevronRight className="w-4 h-4 mx-1 opacity-50" />
-            <Link
-              to={location.pathname}
-              className="text-primary font-semibold capitalize hover:opacity-80 transition-opacity"
-            >
-              {location.pathname === "/" ? "Tailor" : location.pathname.substring(1)}
-            </Link>
+            
+            {location.pathname === "/" ? (
+              <>
+                <ChevronRight className="w-4 h-4 mx-1 opacity-50" />
+                <span className="text-cyan-500 font-semibold capitalize">Home</span>
+              </>
+            ) : (
+              location.pathname.split("/").filter(Boolean).map((segment, index, arr) => (
+                <div key={index} className="flex items-center">
+                  <ChevronRight className="w-4 h-4 mx-1 opacity-50" />
+                  <span className={`capitalize ${index === arr.length - 1 ? "text-primary font-bold" : ""}`}>
+                    {segment.replace(/-/g, " ")}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
           
           {githubAvatarUrl && (

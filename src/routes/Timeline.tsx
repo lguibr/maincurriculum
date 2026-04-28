@@ -11,7 +11,8 @@ export default function Timeline() {
   const [mdExps, setMdExps] = useState("Loading...");
   const [mdProjs, setMdProjs] = useState("Loading...");
   const [mdEdus, setMdEdus] = useState("Loading...");
-  const [mdSkills, setMdSkills] = useState("Loading...");
+  
+  const [nativeSkills, setNativeSkills] = useState<{ id: string, name: string, first: string, last: string, duration: number }[]>([]);
 
   const [rawMarkdown, setRawMarkdown] = useState("");
 
@@ -89,22 +90,13 @@ export default function Timeline() {
         const skillList = Object.entries(skillDates).map(([id, dates]) => {
             const n1 = new Date(dates.first).getTime();
             const n2 = new Date(dates.last).getTime();
-            return { id, first: dates.first, last: dates.last, duration: n2 - n1 };
+            const baseSkill = rawSkills.find(x => x.id === id || x.name === id);
+            return { id, name: baseSkill?.name || id, first: dates.first, last: dates.last, duration: n2 - n1 };
         }).sort((a,b) => b.duration - a.duration).slice(0, 20);
 
-        let skillGraph = "```mermaid\ngantt\n    title Long-Term Skill Lifecycle (Top 20)\n    dateFormat YYYY-MM-DD\n    axisFormat %Y\n";
-        for (const s of skillList) {
-             const baseSkill = rawSkills.find(x => x.id === s.id);
-             if (baseSkill) {
-                skillGraph += `    section ${(baseSkill.name || "Skill").replace(/[:.#]/g,"")}\n`;
-                const ed = getSafeEnd(s.first, s.last);
-                skillGraph += `    Tenure : ${s.first}, ${ed}\n`;
-             }
-        }
-        skillGraph += "```";
-        setMdSkills(skillGraph);
+        setNativeSkills(skillList);
 
-        const buildMd = `# Analytics\n\n## Experiences\n${expGraph}\n\n## Projects\n${projGraph}\n\n## Education\n${eduGraph}\n\n## Skills\n${skillGraph}`;
+        const buildMd = `# Analytics\n\n## Experiences\n${expGraph}\n\n## Projects\n${projGraph}\n\n## Education\n${eduGraph}`;
         setRawMarkdown(buildMd);
 
       } catch (err) {
@@ -153,11 +145,11 @@ export default function Timeline() {
            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                
                {/* Card Experiences */}
-               <div className="bg-gradient-to-br from-[#12182B] to-[#0A0E1A] border border-blue-900/30 shadow-[0_0_40px_-15px_rgba(37,99,235,0.2)] rounded-2xl overflow-hidden flex flex-col">
+               <div className="bg-gradient-to-br from-[#12182B] to-[#0A0E1A] border border-blue-900/30 shadow-[0_0_40px_-15px_rgba(37,99,235,0.2)] rounded-2xl overflow-hidden flex flex-col xl:col-span-2">
                    <div className="px-6 py-4 border-b border-white/5 bg-white/5">
                        <h2 className="text-xl font-semibold text-blue-200 tracking-wide flex items-center"><span className="w-3 h-3 rounded-full bg-blue-500 mr-3 animate-pulse"></span>Professional Experiences</h2>
                    </div>
-                   <div className="p-6 overflow-x-auto w-full prose prose-invert">
+                   <div className="p-6 overflow-x-auto w-full prose prose-invert max-w-none">
                        <ReactMarkdown components={{ code: ({children}) => <MermaidChart chart={String(children)} /> }}>
                             {mdExps}
                        </ReactMarkdown>
@@ -165,11 +157,11 @@ export default function Timeline() {
                </div>
 
                {/* Card Projects */}
-               <div className="bg-gradient-to-br from-[#1A0B2E] to-[#0D0518] border border-purple-900/30 shadow-[0_0_40px_-15px_rgba(147,51,234,0.2)] rounded-2xl overflow-hidden flex flex-col">
+               <div className="bg-gradient-to-br from-[#1A0B2E] to-[#0D0518] border border-purple-900/30 shadow-[0_0_40px_-15px_rgba(147,51,234,0.2)] rounded-2xl overflow-hidden flex flex-col xl:col-span-2">
                    <div className="px-6 py-4 border-b border-white/5 bg-white/5">
                        <h2 className="text-xl font-semibold text-purple-200 tracking-wide flex items-center"><span className="w-3 h-3 rounded-full bg-purple-500 mr-3 animate-pulse"></span>Global Projects</h2>
                    </div>
-                   <div className="p-6 overflow-x-auto w-full prose prose-invert">
+                   <div className="p-6 overflow-x-auto w-full prose prose-invert max-w-none">
                        <ReactMarkdown components={{ code: ({children}) => <MermaidChart chart={String(children)} /> }}>
                             {mdProjs}
                        </ReactMarkdown>
@@ -181,10 +173,26 @@ export default function Timeline() {
                    <div className="px-6 py-4 border-b border-white/5 bg-white/5">
                        <h2 className="text-xl font-semibold text-emerald-200 tracking-wide flex items-center"><span className="w-3 h-3 rounded-full bg-emerald-500 mr-3 animate-pulse"></span>Skill Lifecycles & Matrix</h2>
                    </div>
-                   <div className="p-6 overflow-x-auto w-full prose prose-invert">
-                       <ReactMarkdown components={{ code: ({children}) => <MermaidChart chart={String(children)} /> }}>
-                            {mdSkills}
-                       </ReactMarkdown>
+                   <div className="p-6 overflow-x-auto w-full flex flex-col gap-4">
+                        {nativeSkills.length === 0 ? (
+                           <div className="text-emerald-500/50 text-sm">No skills mapped. Ensure your extracted entities have associated skills.</div>
+                        ) : (
+                           nativeSkills.map((s, index) => {
+                              const maxDur = nativeSkills[0].duration;
+                              const pct = Math.max(5, Math.floor((s.duration / maxDur) * 100));
+                              const years = (s.duration / (1000 * 60 * 60 * 24 * 365)).toFixed(1);
+                              return (
+                                <div key={index} className="flex items-center gap-4">
+                                   <div className="w-32 shrink-0 truncate text-xs font-bold text-emerald-100/80">{s.name}</div>
+                                   <div className="flex-1 shrink-0 h-4 bg-black/40 rounded-full overflow-hidden border border-emerald-900/30">
+                                      <div className="h-full bg-emerald-500 rounded-full flex items-center justify-end pr-2 transition-all duration-1000" style={{ width: `${pct}%` }}>
+                                      </div>
+                                   </div>
+                                   <div className="w-16 shrink-0 text-right text-[10px] text-emerald-400 font-mono">{years} YRS</div>
+                                </div>
+                              );
+                           })
+                        )}
                    </div>
                </div>
 
@@ -193,7 +201,7 @@ export default function Timeline() {
                    <div className="px-6 py-4 border-b border-white/5 bg-white/5">
                        <h2 className="text-xl font-semibold text-orange-200 tracking-wide flex items-center"><span className="w-3 h-3 rounded-full bg-orange-500 mr-3 animate-pulse"></span>Education Path</h2>
                    </div>
-                   <div className="p-6 overflow-x-auto w-full prose prose-invert">
+                   <div className="p-6 overflow-x-auto w-full prose prose-invert max-w-none">
                        <ReactMarkdown components={{ code: ({children}) => <MermaidChart chart={String(children)} /> }}>
                             {mdEdus}
                        </ReactMarkdown>
